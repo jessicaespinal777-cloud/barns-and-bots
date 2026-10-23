@@ -513,5 +513,49 @@
   });
   // P0 attack-state entry point: anticipation -> strike -> recover for part rigs; chibi/hero rigs get their punch pose
   RIG.attack = function (i, dur) { if (!i) return; if (i.sd !== undefined || i.sk !== undefined) RIG.strike(i, dur); if (RIG.punch) RIG.punch(i); };
+  // =====================================================================================================================================
+  // v0.10.1 HIT REACTIONS (cosmetic only): part-specific flinch (head snap / torso lean / arm fling / leg stagger), stagger sway, limp + hunch at low
+  // HP, limb loss, wound drips, and world-space shed pieces. State lives on the rig instance: ht (time since hit), hf (flinch 0..1), hd (hit side +1 front /
+  // -1 back), hg (struck group 0 head,1 torso,2 arm,3 leg), hs (stagger seconds). Never read by the sim.
+  var LIMB = {sn_raker: ["farmB", 0.6], sn_blink: ["farmB", 0.6], sn_shard: ["farmB", 0.6], sn_bastion: ["farmB", 0.62], sn_slinger: ["farmB", 0.6], sn_bruiser: ["farmB", 0.6], sn_snatch: ["clawB", 0.6], sn_sting: ["wingB", 0.55], sn_atank: ["lgB3", 0.58], sn_drone: ["rotB", 0.6]};
+  (function () { var k, nd, L; for (k in LIMB) { var d = BUILT[k]; if (!d || !d.map) continue; L = LIMB[k]; nd = d.map[L[0]]; if (!nd) continue; d.limb = L; var ov = nd.vis, nm = L[0]; nd.vis = function (i) { return !i.shed[nm] && (!ov || ov(i)); }; } })();
+  var _mk2 = RIG.make; RIG.make = function (kind) { var i = _mk2(kind); if (i) { i.ht = 9; i.hf = 0; i.hd = 1; i.hg = 1; i.hs = 0; i.ooT = 0; i.wo = null; i.limpPh = 0; } return i; };
+  function grp(d, n) { var g = d.hgm || (d.hgm = {}), v = g[n]; if (v) return v; v = "t"; if (/^(head|jaw|snout|tip|sac)/.test(n)) v = "h"; else if (/^(uarm|farm|claw|arm|wing|fork|pad|hammer|shield|tail|tA|tB|pL|pR|sp)/.test(n)) v = "a"; else if (/^(thigh|shin|leg|lg|wheel|jet|fin)/.test(n)) v = "l"; g[n] = v; return v; }
+  // called from the species poseFn after the species pose
+  R2.hitPose = function (i, p) {
+    var hf = i.hf, hs = i.hs, L = i.dmg > 0.4 ? min(1, (i.dmg - 0.4) / 0.45) : 0; if (hf < 0.015 && !(hs > 0) && L < 0.01) return;
+    var d = i.hd, a = hf * (1 + 0.3 * cos(i.ht * 24)), hg = i.hg, st = hs > 0 ? min(1, hs / 0.5) : 0, tt = i.t, dd = i.d, n, e, g, sw = sin(tt * 13), cl = calm() ? 0.45 : 1;
+    a *= cl; st *= cl;
+    for (n in p) {
+      e = p[n]; g = grp(dd, n);
+      if (g === "h") { e.r += -d * 0.78 * a * (hg === 0 ? 1.55 : 1) + 0.2 * L + sin(tt * 13 + 1) * 0.16 * st; e.dy += -1.2 * a; e.dx += -d * 1.3 * a; }
+      else if (g === "t") { e.r += -d * 0.3 * a * (hg === 1 ? 1.5 : 1) + 0.13 * L + sw * 0.1 * st; e.dx += -d * 1.8 * a + sin(tt * 9) * 1.1 * st; e.sy *= 1 - 0.07 * a; e.sx *= 1 + 0.05 * a; }
+      else if (g === "a") { e.r += d * 0.58 * a * (hg === 2 ? 1.6 : 1) + sin(tt * 13 + 2) * 0.22 * st; e.dx += -d * 0.9 * a; }
+      else { e.r += (/B\d?$/.test(n) ? -1 : 1) * (d * 0.24 * a * (hg === 3 ? 2 : 1) + sw * 0.24 * st); }
+    }
+    if (L > 0.01) {
+      var rt = p.pelvis || p.root || p.thorax || p.body || p.pod || p.hull || p.torso, ph = i.limpPh; if (rt) rt.dy += max(0, sin(ph)) * 2.0 * L;
+      if (p.shinF) p.shinF.r += 0.38 * L * max(0, sin(ph)); if (p.thighF) p.thighF.r -= 0.12 * L;
+    }
+  };
+  // hit trigger: o.big (heavy), o.dir (+1 attacker in front / -1 behind), o.grp (0..3)
+  RIG.hitP = function (i, o) {
+    if (!i) return; o = o || {}; i.ht = 0; i.hf = o.big ? 1 : 0.7; i.hd = o.dir < 0 ? -1 : 1; i.hg = o.grp !== undefined ? o.grp : (Math.random() * 4) | 0; if (o.big) i.hs = Math.max(i.hs, 0.42);
+    if (RIG.hit) RIG.hit(i, !!o.big);
+  };
+  // world-space origin of the rig's local frame: set by the caller before RIG.step so shed pieces start where the part is on screen
+  var _shed0 = RIG.shed; RIG.shed = function (i, n, o) {
+    var w = i.wo; if (!w) return _shed0(i, n, o); var m = i.wm[n]; if (!m) return; var sv = [m[0], m[1], m[2], m[3], m[4], m[5]], gy0 = i.gy;
+    m[0] *= w.sx; m[1] *= w.sy; m[2] *= w.sx; m[3] *= w.sy; m[4] = w.x + m[4] * w.sx; m[5] = w.y + m[5] * w.sy; i.gy = w.y; _shed0(i, n, o); i.gy = gy0; for (var q = 0; q < 6; q++) m[q] = sv[q];
+  };
+  var _st3 = RIG.step; RIG.step = function (i, dt, inp) {
+    if (!i) return; dt = min(dt, 0.1); i.ht += dt; i.hf *= Math.exp(-dt * 6.2); if (i.hs > 0) i.hs -= dt;
+    // limp: the gait cycle slows as the creature gets hurt
+    var L = i.dmg > 0.4 ? min(1, (i.dmg - 0.4) / 0.45) : 0; if (i.mv > 0.04) i.limpPh += dt * (11 - 5 * L);
+    var lm = i.d.limb; if (lm && i.dmg >= lm[1] && !i.shed[lm[0]]) { i.shed[lm[0]] = 1; i.armorBreak = 1; RIG.shed(i, lm[0], {vx: -i.face * rnd(40, 110)}); i.limbLost = 1; }
+    _st3(i, dt, inp);
+  };
+  // pose-hook: wrap every species poseFn so the hit pose layers on top
+  (function () { var k, d; for (k in BUILT) { d = BUILT[k]; if (!d || d.hitHook) continue; d.hitHook = 1; var pf = d.poseFn; if (!pf) continue; d.poseFn = function (pf0) { return function (i) { pf0(i); R2.hitPose(i, i.p); }; }(pf); } })();
   //@@END
 })();

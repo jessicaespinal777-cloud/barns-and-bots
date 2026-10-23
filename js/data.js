@@ -1,6 +1,6 @@
 "use strict";
 // ---- Game data. Numbers come from the design Page (Baleguard cost/time/power curve). ----
-window.BB = {VERSION: "0.10.0"};
+window.BB = {VERSION: "0.11.0"};
 BB.LEVEL_CAP = 10;
 // upgrade TO level n: tier, coins, salvage, blueprints, timer minutes
 BB.UPG = [null,

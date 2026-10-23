@@ -324,7 +324,7 @@
   RIG.kill = function (i, o) {
     if (!i) return; o = o || {}; var c = null, k, n, nd, d = i.d;
     for (k = 0; k < COR.length; k++) if (!COR[k].on) { c = COR[k]; break; } if (!c) c = COR[0];
-    c.on = 1; c.l = 1.9; c.pcs.length = 0; var F = i.face * i.gs, S = i.gs, ox = i.gx, oy = i.gy, cxm = ox, cym = oy - (d.H || 60) * S * 0.5, big = o.big || 1;
+    c.on = 1; c.l = o.life || 1.9; c.pcs.length = 0; var F = i.face * i.gs, S = i.gs, ox = i.gx, oy = i.gy, cxm = ox, cym = oy - (d.H || 60) * S * 0.5, big = o.big || 1;
     for (n = 0; n < d.nodes.length; n++) {
       nd = d.nodes[n]; var pt = PARTS[nd.im]; if (!pt || nd.hide || (nd.vis && !nd.vis(i))) continue; var m = i.wm[nd.n];
       var A = [m[0], m[1], m[2], m[3], m[4], m[5]];

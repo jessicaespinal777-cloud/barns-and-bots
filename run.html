@@ -582,7 +582,8 @@ function rigAlien(e,x,sy){
   if(!r){r=e._r=RG.make(a.k);if(!r)return false;r.ph=rr(0,6);r.seed=rr(0,40);e._rt=e.t;e._hp0=e.hp;e._born=e.t;RIGSTAT.made++}
   const dt=Math.min(.1,Math.max(0,e.t-e._rt));e._rt=e.t;
   r.dmg=1-Math.max(0,e.hp)/e.hpMax;
-  if(e.flash>0&&!e._fp){RG.hit(r,e._hp0-e.hp>e.hpMax*.2)}e._fp=e.flash>0;e._hp0=e.hp;
+  if(e.flash>0&&!e._fp){if(RG.hitP)RG.hitP(r,{big:e._hp0-e.hp>e.hpMax*.2||e._hbig,dir:e._hfr||1});else RG.hit(r,e._hp0-e.hp>e.hpMax*.2)}e._fp=e.flash>0;e._hp0=e.hp;
+  if(e._ko){e._ko*=Math.exp(-dt*9);if(Math.abs(e._ko)<.1)e._ko=0;x+=e._ko}
   // wind-up -> strike -> recover, driven by the enemy's own telegraph fields
   const tel=(e.tel>0)||(e.state==='wind')||((e.rec||0)>.9);
   if(tel&&!e._tp){RG.strike(r,e.k==='charger'?.38:e.k==='crawler'?.6:.42)}e._tp=tel;
@@ -696,7 +697,11 @@ function drawSkiff(e,x,sy){if(rigAlien(e,x,sy))return;
 }
 /* ---------- boss: Vorlax Walker ---------- */
 function drawBoss(e,x,sy){
-  const dir=e.dir;ctx.save();ctx.translate(x,sy);ctx.scale(dir,-1);
+  const dir=e.dir;ctx.save();
+  const jt0=e._jt||0;if(jt0>0){e._jt=Math.max(0,jt0-(e._jl!==undefined?Math.min(.1,Math.max(0,e.t-e._jl)):.016))}e._jl=e.t;
+  const jf=(e._jt||0)/.28,jd=e._jd||1,cl0=settings.reduced?.45:1,frac=Math.max(0,e.hp)/e.hpMax;
+  ctx.translate(x-dir*jd*jf*5*cl0*(e._jz==='head'?.6:1)+Math.sin(e.t*70)*jf*1.1*cl0,sy);ctx.scale(dir,-1);
+  ctx.transform(1,0,-jd*jf*(e._jz==='head'?.17:.1)*cl0,1,0,0);
   const ph=e.ph,lift=e.stomp>0?1:0,pw=e.phase;
   const bobv=Math.sin(e.t*2)*1.2+(e.moving?Math.abs(Math.sin(ph*2))*2:0);
   const rage=pw>=3;
@@ -714,7 +719,12 @@ function drawBoss(e,x,sy){
   poly([-44,90+bobv,-34,134+bobv,34,134+bobv,48,90+bobv],'#47356a');
   poly([-34,100+bobv,-26,128+bobv,26,128+bobv,38,100+bobv],'#5a4682',1.2);
   // spine spikes/back vents
-  for(let k=0;k<4;k++)poly([-40,96+k*9+bobv,-58,102+k*9+bobv,-40,104+k*9+bobv],'#241a38',1.3);
+  const lostSp=(pw-1)+(frac<.12?1:0);
+  for(let k=0;k<4;k++){if(k<lostSp&&k<3){poly([-40,96+k*9+bobv,-45,98+k*9+bobv,-40,104+k*9+bobv],'#241a38',1.3);continue}poly([-40,96+k*9+bobv,-58,102+k*9+bobv,-40,104+k*9+bobv],'#241a38',1.3)}
+  if(frac<.85){ctx.save();ctx.strokeStyle='#0d0716';ctx.lineWidth=1.6;ctx.lineCap='round';const nc=frac<.25?5:frac<.5?3:frac<.7?2:1,cr=[[-30,104,-14,112,-22,122,-12,130],[22,98,12,110,26,120,16,130],[-6,128,2,116,-8,106,0,98],[30,126,22,118,34,110,28,102],[-36,118,-26,114,-34,106,-28,100]];
+    for(let q=0;q<nc;q++){const c=cr[q];ctx.beginPath();ctx.moveTo(c[0],c[1]+bobv);ctx.lineTo(c[2],c[3]+bobv);ctx.lineTo(c[4],c[5]+bobv);ctx.lineTo(c[6],c[7]+bobv);ctx.lineWidth=2.6;ctx.strokeStyle='#0d0716';ctx.stroke();ctx.lineWidth=.9;ctx.strokeStyle='rgba(180,255,110,.75)';ctx.stroke()}
+    if(frac<.5){ctx.fillStyle='#7fd63a';ctx.globalAlpha=.8;for(let q=0;q<2;q++){const oy=((e.t*14+q*9)%22);ctx.fillRect(-24+q*30,108+bobv-oy*.6,2.2,3.5+oy*.12)}ctx.globalAlpha=1}ctx.restore()}
+  if(!settings.reduced&&frac<.5){e._sT=(e._sT||0)-(1/60);if(e._sT<=0){e._sT=frac<.25?.12:.28;addPart({t:'smoke',x:e.x+rr(-14,14),y:e.y+rr(100,128),vx:rr(-12,12),vy:rr(25,55),life:rr(.7,1.2),size:rr(7,13),col:frac<.25?'#241a2a':'#4a3a58',grav:-8});if(frac<.25&&R()<.5)addPart({t:'spark',x:e.x+rr(-20,20),y:e.y+rr(90,130),vx:rr(-60,60),vy:rr(40,140),grav:500,life:.3,col:'#ffb04a',size:2})}}
   
   // chest: armor plate or reactor
   if(pw===1&&!e.plateGone){ poly([-26,98+bobv,-22,126+bobv,22,126+bobv,28,98+bobv],'#6a5290',1.8);
@@ -933,6 +943,9 @@ function hurtEnemy(e,dmg,hx,hy,weak){
   if(e.dead)return;e.hp-=dmg;e.flash=.09;e.acc+=dmg;e.weak=e.weak||weak;chargeBurst(dmg*.55);
   addPart({t:'spark',x:hx,y:hy,vx:rr(-120,120),vy:rr(40,200),grav:600,life:.25,col:'#fff2b0',size:2});addPart({t:'spark',x:hx,y:hy,vx:rr(-90,90),vy:rr(20,120),grav:600,life:.2,col:'#ff9a3a',size:2});
   Aud.play('hit');
+  {const sd=Math.sign(e.x-G.p.x)||1,big=dmg>=6,cl=settings.reduced?.4:1;e._ko=Math.max(-14,Math.min(14,(e._ko||0)+sd*(big?9:4)*cl));e._kd=sd;e._hbig=big;e._hfr=(Math.sign(G.p.x-e.x)===e.dir)?1:-1;
+    const nI=Math.round((big?6:3)*cl);for(let i=0;i<nI;i++)addPart({t:'spark',x:hx,y:hy,vx:sd*rr(40,190),vy:rr(30,170),grav:520,life:rr(.25,.5),col:i%2?'#c8ff7a':'#7fd63a',size:rr(2,3.4)});
+    if(e.hp>0&&e.hp/e.hpMax<.5&&R()<.5)addPart({t:'smoke',x:e.x+rr(-6,6),y:e.y+e.h*.55,vx:sd*rr(5,25),vy:rr(15,40),life:rr(.5,.9),size:rr(5,9),col:'#7fb02a',grav:-5})}
   if(e._r&&!e._wpn&&e.hp>0&&e.hp/e.hpMax<.34&&e.hpMax>=7){e._wpn=1;addText(e.x,e.y+e.h+24,'WEAK POINT','#6df0ff',11,.9)}
   G.hitstop=Math.max(G.hitstop,.03);
   if(e.hp<=0)killEnemy(e);
@@ -1157,6 +1170,7 @@ function spawnBoss(){
   const e={k:'boss',x:cam.x+W+140,y:0,w:100,h:160,hp:300,hpMax:300,dir:-1,ph:0,t:0,flash:0,acc:0,accT:0,phase:1,state:'enter',sec:99,cd:2,atk:null,plateGone:false,stomp:0,moving:true,cRec:0,weak:false,tel:0};
   enemies.push(e);boss=e;G.bossState=2;Aud.play('roar');shake(10);banner('VORLAX WALKER','Hit the glowing cockpit!','#ff5a3a',2.2);
 }
+function bossJolt(e,zone,heavy){e._jt=heavy?.28:.13;e._jd=(Math.sign(G.p.x-e.x)===e.dir)?1:-1;e._jz=zone}
 function hurtBoss(e,dmg,x,y,kind){
   if(e.state==='enter'||e.state==='trans'||e.state==='dying')return 0;
   const hy=y-e.y;let mult,zone;
@@ -1164,9 +1178,9 @@ function hurtBoss(e,dmg,x,y,kind){
   else if(hy>=76){zone='chest';mult=e.plateGone?(e.phase===3?2.2:1.8):.25}
   else{zone='leg';mult=e.phase===3?.4:.25}
   if(kind==='explosion')mult=Math.max(mult,e.plateGone?1.2:.5);
-  const d=dmg*mult;e.hp-=d;e.flash=.07;e.acc+=d;e.weak=e.weak||mult>=1;chargeBurst(d*.4);
+  const d=dmg*mult;e.hp-=d;e.flash=.07;bossJolt(e,zone,mult>=1);e.acc+=d;e.weak=e.weak||mult>=1;chargeBurst(d*.4);
   if(mult<1){Aud.play('clink');addPart({t:'spark',x,y,vx:-e.dir*rr(60,200),vy:rr(40,200),grav:500,life:.3,col:'#e8f4ff',size:2});if(R()<.3)addText(x,y+8,'CLINK','#b8c8e8',9,.4)}
-  else{addPart({t:'fire',x,y,col:'yellow',size:26,life:.08});Aud.play('hit')}
+  else{addPart({t:'fire',x,y,col:'yellow',size:26,life:.08});Aud.play('hit');const cl=settings.reduced?.4:1;for(let i=0;i<Math.round(6*cl);i++)addPart({t:'spark',x,y,vx:-e.dir*rr(30,200),vy:rr(30,180),grav:520,life:rr(.25,.55),col:i%2?'#c8ff7a':'#7fd63a',size:rr(2,3.6)})}
   if(e.phase===1&&e.hp<=e.hpMax*.6)bossPhase(e,2);
   else if(e.phase===2&&e.hp<=e.hpMax*.25)bossPhase(e,3);
   else if(e.hp<=0&&e.state!=='dying')killBoss(e);
@@ -1179,6 +1193,7 @@ function bossPhase(e,ph){
   for(let i=0;i<8;i++)spawnCoin(e.x,rr(80,150));
 }
 function killBoss(e){
+  {const cl=settings.reduced?.5:1;for(let i=0;i<Math.round(16*cl);i++)addPart({t:'deb',x:e.x+rr(-30,30),y:e.y+rr(30,150),vx:rr(-260,260),vy:rr(160,460),grav:700,life:rr(1.2,2),w:rr(5,12),h:rr(3,8),col:['#47356a','#6a5290','#3a2a52','#1e1430','#c8c0d8'][ri(0,4)],rot:rr(0,6),vr:rr(-14,14)})}
   zoomKick(1.16);e.state='dying';e.dt2=0;e.hp=0;G.state='bossdeath';G.endT=0;ebullets.length=0;G.slow=.55;Aud.play('roar');banner('VORLAX DOWN!','','#ffd24a',2.4);G.score+=5000;
   for(const o of enemies)if(o!==e&&!o.dead){o.dead=true;explode(o.x,o.y+o.h/2,1.3,{shake:3})}
 }

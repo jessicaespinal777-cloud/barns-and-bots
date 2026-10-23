@@ -1,4 +1,4 @@
-# Barns & Bots — playable prototype v0.10.0
+# Barns & Bots — playable prototype v0.11.0
 
 Build your farm. Defend your herd. A mobile-first game prototype with a base-building and raid loop built on genre-standard mechanics (base building, builder timers, resource collectors, raids, 3 stars, trophies, leagues, co-op crew), plus the original hero-mech action battles and a 3-phase boss duel (Vorlax). Graphics were upgraded: generated sprites, juice, HUD and results screens.
 
@@ -12,7 +12,7 @@ Build your farm. Defend your herd. A mobile-first game prototype with a base-bui
 7. Story path (10 bases) ends with Vorlax's Ark and a duel against Vorlax in the hero action battle. Daily gift, quests (TASKS), achievements, the Harvest Pass (mock) and the simulated Ranch Crew (fake members, donations) give you next goals.
 
 ## Features
-Original base builder (24x24 grid, 16 building types incl. fences), seeded procedural enemy-outpost generator with a local pool scaled to your Core level, deterministic raid simulation with pathing around fences, splash, traps, targeting preferences and lure mechanics, async defense raids, trophies/leagues/shield, economy (coins, salvage, mock gems), builders and timers, daily rewards, quests, achievements, mock battle pass, simulated crew, hero-mech action battles (Baleguard levels 1-10), localStorage saves, offline timers, local analytics. All free: no accounts, no network, no CDN.
+Original base builder (24x24 grid; 25 placeable building types plus the Core: 2 collectors, 2 storages, 10 defenses, 5 traps, camp, training barn, workshop, crew hall, tinker hut and fences; 12 troops, 7 spells), seeded procedural enemy-outpost generator with a local pool scaled to your Core level, deterministic raid simulation with pathing around fences, splash, traps, targeting preferences and lure mechanics, async defense raids, trophies/leagues/shield, economy (coins, salvage, mock gems), builders and timers, daily rewards, quests, achievements, mock battle pass, simulated crew, hero-mech action battles (Baleguard levels 1-10), localStorage saves, offline timers, local analytics. All free: no accounts, no network, no CDN.
 
 ## What is new in v0.4.0
 - **Second hero: Scarecrow-X** (Harvest Sentinel sharpshooter, original design). Unlock: clear story mission 5 "Windmill Run" (needs Core L2). Pick the raid hero in HEROES. His SURGE is **Murder of Crows**: crows blind and strike the 4 nearest defenses for 5s and he fires twice as fast; Baleguard's SURGE (Hay Slam) heals and slams. Scope, honestly: Scarecrow-X works in Base Raids (find, revenge, story bases, replays). The defense missions and the Vorlax duel still always use Baleguard.
@@ -200,8 +200,53 @@ Jessica said the details in the actions were missing. This build adds part-based
 - Timing values for hit-stop, shake and slow-motion are design targets tuned by eye, not measured from other games.
 - Farm Run balance is a first pass.
 
+## What changed in v0.10.1 (monster damage reactions)
+Jessica asked that the monsters also show damage action when our player attacks them. Everything below is cosmetic: it reads the simulation but never writes to it, so replays, saves and balance are unchanged (the determinism tests still match).
+
+### Raid (Hive defenders, Sentinels, Bastion, Hive Heart, buildings)
+- **Part-specific flinch**: the struck part recoils (head snap, torso lean, arm fling, leg stagger) and recovers over about a third of a second. The struck part is picked from the hit (head / body / arm / leg).
+- **Directional knockback** along the hit vector (the attacker is the nearest troop that was targeting the monster), with a short settle.
+- **Hit tint**: a white flash on each hit (shortened and dimmer in calm mode).
+- **Ichor and sparks** at the strike point: acid-green ichor drops and bright chips, original colours, thinned out when reduced flashing (calm) is on.
+- **Stagger on heavy hits** (a burst, a hero finisher or a big crit): the creature sways for about half a second.
+- **Progressive damage states by HP lost**: cracked carapace lines and oozing wounds from about 40 percent HP lost, a limp (slower, uneven gait with a dipped body) from about 40 percent building to full by 85 percent, a lost limb or claw part (it flies off as a world-space piece) at the next threshold, then smoke and sparks above 60 percent lost. Exact thresholds are cosmetic tuning values in js/cc_act.js and js/rig2.js.
+- **Weak point and armor break**: the existing WEAK POINT / ARMOR BREAK callouts now also throw the shed plate into the world and flash the part.
+- **Death**: the rig comes apart (parts fly in different directions), leaving a remnant husk and an ichor decal. The sprite-path creatures (hounds, badgers, Husk Guards, kestrels) split into two halves that fall apart.
+- **Hive Heart and buildings** jolt along the hit vector, throw chips and sparks per hit (not per frame), and keep their existing stage cracks, smoke and collapse remnant.
+- The walk cycle of raid rigs now advances properly and slows with damage (it was previously frozen on the first frame in some states).
+
+### Farm Defense Run (run.html)
+- Rigged aliens (Husk Trooper, Ravager, Crawler Tank, Skiff Gunship) get the same part flinch, white flash, knockback offset, ichor spray, limb loss and limp as in the raid.
+- **Vorlax Walker boss**: hit jolt and lean (stronger on head hits), ichor sparks on weak-point hits, cracks and oozing wounds as HP falls, missing back spikes in steps, smoke and sparks at the lower HP stages, and armour plates, limbs and debris flying apart on its death. The existing armor break (phase 2) and enraged (phase 3) states are unchanged.
+
+### v0.10.1 known gaps (honest list)
+- Verified in headless Chrome only (screenshots and a short clip); not tested on a real phone.
+- The damage states are drawn from the same HP number the health bar uses, so a creature healed by an ability pops back to a cleaner look.
+- Run-mode enemies that fall back to the older hand-drawn art (when part rigs are off) only get the white flash and sparks, not limb loss.
+- Some hit direction is a guess when no troop is targeting the monster (area spells, burst): it then recoils away from the side it faces.
+
+## What changed in v0.11 (genre-gap pass: Roll Call, Lockbox, obstacles, shields)
+Jessica asked for the genre gap analysis (a comparison of what a standard base-builder loop has that this game lacked) to be applied. v0.11.0 takes the five items the analysis put first. All names and art are original and these are generic genre mechanics. Saves from v0.10 and older load unchanged: every new field is optional and back-filled when the save is opened.
+
+- **Roll Call (3 army presets)**: a card at the top of the ARMY panel. SAVE stores the current army (trained plus queued) and brewed spells in a slot; QUEUE trains whatever is missing for that preset in one tap, paying coins as normal and stopping at housing, training barn level and coin limits (it tells you how many did not fit). Presets live in `cc.rc` and survive a reload.
+- **Lockbox + At Risk bar**: every Coin Barn and Salvage Silo keeps 20% of its capacity out of a raider's reach. Raiders take their usual share only of what is above that line. A bar under the header shows safe / exposed / at-risk coins (tap it for the Lockbox panel), storages show their Lockbox size, and the away report says how much was kept safe.
+- **Obstacles**: Weed Patches, Boulders and Glow Pods grow near the island edge (about one every 3 hours, max 12, six at the start of a new or upgraded save). They block placement. A free Tinker clears one for a small coin cost and a short timer; rewards are a few play-gems (plus salvage for boulders) and a little pass progress. Drawn with canvas paths: no new image files.
+- **Beginner Shield + daily loss cap**: for the first 3 days or until Core L4, no async or offline raids happen. After that, raids can never take more than 25% of storage capacity (coins and salvage) or 60 trophies in one day. The header shows the shield timer and the log notes when the cap stopped further losses.
+- **Monster damage reactions** (finished from v0.10.1, see that section): part-specific flinch and recoil, directional knockback, white hit flash, sparks and ichor, stagger on heavy hits, damage states that build up as HP falls (cracks, ooze, limp, lost limbs, smoke), weak-point and armor-break plates thrown off, and a death burst with parts and a remnant, in Raid and in Farm Defense Run including the boss. Cosmetic only; `calm()` mutes it.
+
+### v0.11 checks
+Determinism tests (det7, det8) unchanged, smoke and fuzz runs clean, a v0.6-era save loads with no console errors, presets survive a reload, and a frame-time pass is recorded in the build notes. Screenshots are in `screenshots/v11/` and a 24 s hit-reaction clip is `videos/v11_hits.mp4`.
+
+### v0.11 known gaps (honest list)
+- Headless Chrome only; no real phone has run it yet. The frame-time number is from a software-rendered browser.
+- Obstacles, the Lockbox and the loss cap are tuned by feel and have no player data behind them.
+- Obstacles do not appear in other players' bases (there are none; opponent bases are procedural).
+- Roll Call does not manage Crew or Hero loadouts, only troops and spells.
+- Run boss death and Hive Heart break were not captured on video, only in stills and logs where noted in `screenshots/v11/`.
+- Real-money offers still do not exist. Gems stay play-currency only.
+
 ## Honest depth assessment
-The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 16 building types (incl. fences), 4 troop types, 4 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
+The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 25 placeable building types plus the Core (10 defenses, 5 traps, 2 collectors, 2 storages, camp, training barn, workshop, crew hall, tinker hut, fences), 12 troop types, 7 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
 
 ## LEGAL-NOTES
 - Only generic, unprotectable game mechanics are used (base building, builder timers, resource collectors, raids, 3-star scoring, trophies, leagues, co-op crew). No names, units, buildings, art, sounds, text or pixel-copied UI layouts from other commercial games are used. Lookalike terms were renamed (Homestead Core, Crop Field, Scrap Rig, Coin Barn, Salvage Silo, Tinker Shed, Muster Yard, Crew Barn, Fence...) and the project was searched for such terms before release.
@@ -248,7 +293,7 @@ Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 ev
 Google Play needs a one-time US$25 developer account. Check AI-art ownership (see LEGAL-NOTES) and store policies first.
 
 ## Files
-index.html, run.html (v0.10 Farm Defense Run page), manifest.webmanifest, sw.js (cache bb-proto-v12; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing (hive ground), rig2.js (v0.10 procedural alien rigs and attack/impact effects), cc_act.js (v0.10 raid action layer: camera, kill feed, callouts, health bars), rig_data.js + rig.js v0.9 skeleton animation and effect pools (atlas in assets/rig/), cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, sq_data.js and sq_core.js v0.8 squad data and logic (roster, summon, jobs, trials, missions, codex), sq_cut.js cut-in and reveal overlays, sq_ui.js squad hub and raid bar, assets/sq/ (17 webp portraits), cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
+index.html, run.html (v0.10 Farm Defense Run page), manifest.webmanifest, sw.js (cache bb-proto-v14; bump when files change), js/cc_v11.js (v0.11: Roll Call, Lockbox, obstacles, Beginner Shield, loss cap), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing (hive ground), rig2.js (v0.10 procedural alien rigs and attack/impact effects), cc_act.js (v0.10 raid action layer: camera, kill feed, callouts, health bars), rig_data.js + rig.js v0.9 skeleton animation and effect pools (atlas in assets/rig/), cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, sq_data.js and sq_core.js v0.8 squad data and logic (roster, summon, jobs, trials, missions, codex), sq_cut.js cut-in and reveal overlays, sq_ui.js squad hub and raid bar, assets/sq/ (17 webp portraits), cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
 
 ## Not built yet
 Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.

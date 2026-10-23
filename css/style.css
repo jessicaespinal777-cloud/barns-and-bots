@@ -173,7 +173,7 @@ table.t td,table.t th{padding:3px 4px;border-bottom:1px solid #26305e;text-align
 .rs.g{min-width:0;padding-bottom:2px;border-color:#5fc7ff}.rs b{flex:1;text-align:right}
 .rs .cap{position:absolute;left:8px;right:8px;bottom:2px;height:3px;border-radius:2px;background:#0006;overflow:hidden}.rs .cap i{display:block;height:100%;background:#ffd35a}
 .b-sub{width:100%;display:flex;gap:10px;font-size:11px;font-weight:800;color:#c9d4ff;padding-left:2px;text-shadow:0 1px 2px #000}.shield{color:#7fe3ff}
-.b-queue{left:8px;right:8px;top:calc(88px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:4px;align-items:flex-start;pointer-events:none}
+.b-queue{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:4px;align-items:flex-start;pointer-events:none}
 .chip{pointer-events:auto;display:flex;align-items:center;gap:6px;background:rgba(14,18,40,.9);border:2px solid #7a8bb5;border-radius:14px;padding:2px 4px 2px 3px;font-size:11px;font-weight:800;color:#fff}
 .chip img{width:22px;height:22px;object-fit:contain}.chip .gm{background:linear-gradient(#7fe3ff,#2a8fd6);color:#06263d;border-radius:9px;padding:1px 6px;font-style:normal;font-weight:900}
 .b-bottom{left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom));pointer-events:none;padding:0 8px 6px;display:flex;flex-direction:column;gap:6px}
@@ -499,3 +499,15 @@ body.calm .rq.rdy{animation:none}
 @keyframes kfin{from{transform:translateX(-14px);opacity:0}to{transform:none;opacity:1}}
 body.calm .kfeed .kf{animation:none}
 .runov{position:fixed;inset:0;z-index:99999;background:#10081a}.runov iframe{width:100%;height:100%;border:0;display:block}
+
+/* v0.11: At Risk bar, Roll Call, obstacle bar */
+.b-sub{flex-wrap:wrap;row-gap:2px}
+.risk{pointer-events:auto;display:inline-flex;align-items:center;gap:5px;background:rgba(14,18,40,.78);border:1px solid #7a8bb5;border-radius:10px;padding:1px 6px 1px 4px;font-size:10px;font-weight:800;color:#ffd0c8;cursor:pointer}
+.risk:empty{display:none}.risk em{font-style:normal}.risk.calm{color:#bff7c8}
+.risk .rk{display:flex;width:54px;height:7px;border-radius:4px;background:#232a4a;overflow:hidden;border:1px solid #0b0f22}
+.risk .rk u{display:block;height:100%}.risk .sf{background:linear-gradient(#7dffa0,#2fb45a)}.risk .ex{background:#8a6a3a}.risk .ar{background:linear-gradient(#ff8a7a,#d4322a)}
+.card.rc .rcrow{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.rcs{background:#1a2142;border:2px dashed #4a5886;border-radius:10px;padding:6px 8px;display:flex;flex-direction:column;gap:2px}
+.rcs.on{border-style:solid;border-color:#ffd35a;background:#242b52}
+.rcs b{font-size:13px;color:#ffe9a3}.rcs small{opacity:.9}.rcs .rcc{color:#9fe8ff}
+.rcb{display:flex;gap:6px;margin-top:3px}.rcb .btn{flex:1;padding:6px 4px;font-size:12px}.rcb .btn.sec{flex:0 0 auto;min-width:46px}.rcb .btn.off{opacity:.45}

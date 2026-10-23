@@ -35,7 +35,7 @@
     return h;
   }
   function armyHTML() {
-    var c = cc(), cap = X.housing(), used = X.housed(), h = "<h2>ARMY</h2>" + '<div class="card"><div class="row"><div class="grow"><h4>Muster Yards</h4><small>' + used + " / " + cap + " housing used</small></div><b style=\"font-size:20px\">" + used + "/" + cap + "</b></div>" + bar(cap ? used / cap * 100 : 0) + "</div>";
+    var c = cc(), cap = X.housing(), used = X.housed(), h = "<h2>ARMY</h2>" + '<div class="card"><div class="row"><div class="grow"><h4>Muster Yards</h4><small>' + used + " / " + cap + " housing used</small></div><b style=\"font-size:20px\">" + used + "/" + cap + "</b></div>" + bar(cap ? used / cap * 100 : 0) + "</div>" + (X.rcHTML ? X.rcHTML() : "");
     var tl = lvOf("train"), wl = lvOf("workshop");
     h += "<h3 class=\"sec\">Troops</h3>";
     C.UORDER.forEach(function (k) {
@@ -116,7 +116,7 @@
   X.logModal = logModal;
   function awayReport(n) {
     var c = cc(); if (!c.unseen) return; var l = c.log.slice(0, c.unseen), lc = 0, ls = 0, tl = 0; l.forEach(function (e) { lc += e.lc; ls += e.ls; tl += e.tl; });
-    X.modal('<h1 class="lose" style="font-size:22px">WHILE YOU WERE AWAY</h1><div class="loot"><span>Raids</span><span>' + l.length + "</span><span>Coins lost</span><span>-" + X.fmt(lc) + "</span><span>Salvage lost</span><span>-" + ls + "</span><span>Trophies lost</span><span>-" + tl + '</span></div><p class="sub" style="text-align:center">' + (c.shield > Date.now() ? "Your shield is up. " : "") + "Watch what happened or take revenge.</p>" + '<div class="btns"><button class="btn sec" id="m-no">OK</button><button class="btn" id="a-log">OPEN LOG</button></div>');
+    X.modal('<h1 class="lose" style="font-size:22px">WHILE YOU WERE AWAY</h1><div class="loot"><span>Raids</span><span>' + l.length + "</span><span>Coins lost</span><span>-" + X.fmt(lc) + "</span><span>Salvage lost</span><span>-" + ls + "</span><span>Trophies lost</span><span>-" + tl + '</span></div><p class="sub" style="text-align:center">' + (l.some(function (e) { return e.capped; }) ? "The daily loss cap stopped further losses. " : "") + (l[0] && l[0].lockC ? "Your Lockbox kept " + X.fmt(l[0].lockC) + " coins safe. " : "") + (c.shield > Date.now() ? "Your shield is up. " : "") + "Watch what happened or take revenge.</p>" + '<div class="btns"><button class="btn sec" id="m-no">OK</button><button class="btn" id="a-log">OPEN LOG</button></div>');
     $("m-no").onclick = function () { c.unseen = 0; X.close(); X.hud(); }; $("a-log").onclick = logModal;
   }
   function intro() {

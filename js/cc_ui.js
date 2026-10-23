@@ -19,12 +19,14 @@
     return {v: 2, nid: 20, bld: [b("core", 10, 9), b("barn", 14, 9), b("field", 6, 9), b("tinker", 14, 13), b("camp", 6, 13), b("train", 10, 14), b("blaster", 15, 5)],
       army: {slinger: 5, bruiser: 3}, queue: [], qLast: n, spells: {}, ulv: {slinger: 1, bruiser: 1, roller: 1, drone: 1}, lab: null, heroHp: 1, heroT: n, hero: "bale", hh: {},
       crew: {units: {}, req: null, reqAt: 0, don: {}, log: []}, trophies: 0, shield: 0, log: [], unseen: 0, story: {}, daily: {last: "", streak: 0}, quests: {day: "", prog: {}, claimed: {}},
-      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null, hints: {}, mini: {day: "", best: 0, done: 0, plays: 0}, pets: {day: "", n: 0, t: {}}};
+      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null, hints: {}, mini: {day: "", best: 0, done: 0, plays: 0}, pets: {day: "", n: 0, t: {}},
+      rc: [null, null, null], obs: [], obsNext: 0, bs: n + 3 * 86400000, loss: {day: "", c: 0, s: 0, t: 0}};
   }
   X.ensure = function () {
     if (!S.cc) S.cc = fresh(); cc = S.cc; var f = fresh(); for (var k in f) if (cc[k] === undefined) cc[k] = f[k];
     if (cc.tut === undefined) cc.tut = (cc.stats && cc.stats.attacks) || cc.bld.length > 7 || (cc.trophies || 0) > 0 ? 9 : 0;
     if (!cc.v || cc.v < 2) { cc.v = 2; cc.guard = 0; cc.prevLayout = null; if (cc.log) cc.log.forEach(function (e) { if (e && e.base && !e.base.fh) e.base.fh = e.fh || 1; }); BB.track("cc_migrate_v2", {}); }
+    if (X.v11Init) X.v11Init();
     return cc;
   };
   X.cc = function () { return cc; };
@@ -50,7 +52,7 @@
   X.maxCount = function (t) { return C.B[t].mx[X.coreL() - 1]; };
   X.count = function (t) { return bt(t).length; };
   X.tinkers = function () { return done("tinker").length; };
-  X.busy = function () { return cc.bld.filter(function (b) { return b.up; }).length; };
+  X.busy = function () { return cc.bld.filter(function (b) { return b.up; }).length + (X.obsBusy ? X.obsBusy() : 0); };
   X.freeTinker = function () { return X.tinkers() - X.busy(); };
   X.coinCap = function () { return 500 + done("barn").reduce(function (a, b) { return a + C.B.barn.cap[b.l]; }, 0); };
   X.salvCap = function () { return 50 + done("silo").reduce(function (a, b) { return a + C.B.silo.cap[b.l]; }, 0); };
@@ -64,7 +66,7 @@
   X.grid = function (ex) { var o = []; for (var i = 0; i < N; i++) o.push(new Array(N).fill(0)); cc.bld.forEach(function (b) { if (b.id === ex) return; var d = C.B[b.t]; for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) o[b.y + j][b.x + k] = b.id; }); return o; };
   function fits(t, x, y, ex) {
     var d = C.B[t]; if (x < C.RING || y < C.RING || x + d.w > N - C.RING || y + d.h > N - C.RING) return false; var g = X.grid(ex);
-    for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) if (g[y + j][x + k]) return false; return true;
+    for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) if (g[y + j][x + k]) return false; if (X.obsBlocks && X.obsBlocks(x, y, d.w, d.h)) return false; return true;
   }
   X.fits = fits;
   function findSpot(t) { var d = C.B[t], best = null, bd = 1e9; for (var y = C.RING; y <= N - C.RING - d.h; y++) for (var x = C.RING; x <= N - C.RING - d.w; x++) { if (!fits(t, x, y)) continue; var dd = Math.hypot(x - 10, y - 11); if (dd < bd) { bd = dd; best = [x, y]; } } return best; }
@@ -96,6 +98,7 @@
     // crew donations
     if (cc.crew.req && now >= cc.crew.reqAt) { fillCrew(); }
     if (cc.shield && cc.shield < now) cc.shield = 0;
+    if (X.v11Tick) X.v11Tick(now);
   }
   function fillCrew() {
     var cap = X.crewCap(), used = X.crewUsed(), pat = ["bruiser", "slinger", "slinger", "roller", "drone", "slinger", "chick", "hound"], i = 0, got = [];
@@ -120,10 +123,11 @@
     cnt($("bv-coins"), S.coins); cnt($("bv-salv"), S.salv); cnt($("bv-gems"), S.gems);
     $("bc-coins").style.width = Math.min(100, S.coins / X.coinCap() * 100) + "%"; $("bc-salv").style.width = Math.min(100, S.salv / X.salvCap() * 100) + "%";
     var L = C.league(cc.trophies); $("b-league").innerHTML = '<i class="lg" style="background:' + L.col + '"></i><b>' + cc.trophies + "</b><small>" + L.n + "</small>";
-    var sh = cc.shield > Date.now() ? "\u{1F6E1} Shield " + C.fmtT((cc.shield - Date.now()) / 60000) : cc.guard > Date.now() ? "Guard " + C.fmtT((cc.guard - Date.now()) / 60000) : ""; $("b-shield").textContent = sh; $("b-shield").style.display = sh ? "" : "none";
+    var sh = X.shieldText(); if (X.riskHud) X.riskHud(); $("b-shield").textContent = sh; $("b-shield").style.display = sh ? "" : "none";
     $("b-tink").innerHTML = "<b>" + X.freeTinker() + "/" + X.tinkers() + "</b> tinkers free";
     var q = cc.bld.filter(function (b) { return b.up; }).sort(function (a, b) { return (a.up.total - a.up.done) - (b.up.total - b.up.done); }), h = "";
     q.forEach(function (b) { var rem = b.up.total - b.up.done, g = BB.skipGems(rem); h += '<button class="chip" data-sel="' + b.id + '"><img src="assets/' + (C.B[b.t].art || (b.t === "field" ? "corn" : "silo_dmg")) + '.webp" alt=""><span>' + C.B[b.t].name.split(" ")[0] + " " + C.fmtT(rem) + '</span><i class="gm" data-skip="' + b.id + '">\u25C6' + g + "</i></button>"; });
+    (cc.obs || []).forEach(function (o) { if (o.cl) h += '<button class="chip" data-obsel="' + o.id + '"><span style="font-size:15px">\u{1F33F}</span><span>' + C.OBS[o.k].name + " " + C.fmtT(o.cl.total - o.cl.done) + "</span></button>"; });
     if (cc.lab) { var rl = cc.lab.total - cc.lab.done; h += '<button class="chip" data-nav="army"><img src="assets/workshop.webp" alt=""><span>' + C.U[cc.lab.k].name.split(" ")[1] + " L" + cc.lab.to + " " + C.fmtT(rl) + "</span></button>"; }
     if (h !== X._qh) { X._qh = h; $("b-queue").innerHTML = h; }
     $("b-goal").innerHTML = goalText(); $("b-daily").classList.toggle("ready", cc.daily.last !== day()); $("log-badge").textContent = cc.unseen || ""; $("log-badge").style.display = cc.unseen ? "" : "none";
@@ -177,6 +181,7 @@
   // selection
   X.tapAt = function (x, y) {
     var tx = Math.floor(x), ty = Math.floor(y), hit = null; cc.bld.forEach(function (b) { var d = C.B[b.t]; if (tx >= b.x && tx < b.x + d.w && ty >= b.y && ty < b.y + d.h && (!hit || d.kind !== "wall")) hit = b; });
+    var ob = !hit && X.obsAt ? X.obsAt(tx, ty) : null; V.selObs = ob; if (ob) { V.sel = null; BB.sfx("click"); X.selBar(); return; }
     if (hit && C.B[hit.t].kind === "col" && collectable(hit)) { X.collect(hit); }
     if (hit && hit.up) X.speedTap(hit);
     V.sel = hit; BB.sfx(hit && hit.up ? "hammer" : "click"); X.selBar();
@@ -207,14 +212,14 @@
   };
   X.bubble = function (b) { var d = C.B[b.t]; return d.kind === "col" && b.l >= 1 && (b.st || 0) >= Math.max(15, d.cap[b.l] * 0.12); };
   X.selBar = function () {
-    var el = $("b-sel"), b = V.sel; if (V.ghost || V.paint) return; if (!b) { el.classList.add("hidden"); el.innerHTML = ""; return; }
+    var el = $("b-sel"), b = V.sel; if (V.ghost || V.paint) return; if (!b && V.selObs && X.obsBar) { X.obsBar(V.selObs); return; } if (!b) { el.classList.add("hidden"); el.innerHTML = ""; return; }
     var d = C.B[b.t], h = "", info = "", lv = b.l;
     if (b.up) { info = "Under construction. " + C.fmtT(b.up.total - b.up.done) + " left."; }
     else if (d.kind === "def" && d.sup) info = "Support &middot; range " + d.rng + " &middot; ranged hits on nearby defenses do 30% less &middot; HP " + Math.round(d.hp * C.LV[lv - 1 < 0 ? 0 : lv])
     else if (d.kind === "def") info = (d.spec ? C.SPECTXT[d.spec] + " &middot; " : "") + "Damage " + Math.round(d.dps * C.LV[lv] * 1.3) + "/s &middot; range " + d.rng + " &middot; hits " + (d.g && d.a ? "ground + air" : d.g ? "ground only" : "air only") + " &middot; HP " + Math.round(d.hp * C.LV[lv]);
     else if (d.kind === "trap") info = (C.TRAPTXT[d.tk || "rake"] || d.d) + " &middot; hidden from raiders until they scout it"
     else if (d.kind === "col") info = "Makes " + d.rate[lv] + "/min &middot; holds " + X.fmt(b.st || 0) + "/" + X.fmt(d.cap[lv]);
-    else if (d.kind === "sto") info = "Capacity " + X.fmt(d.cap[lv]) + " &middot; raiders can loot a share";
+    else if (d.kind === "sto") info = "Capacity " + X.fmt(d.cap[lv]) + " &middot; \u{1F512} Lockbox keeps " + X.fmt(Math.floor(d.cap[lv] * C.LOCK_PCT)) + " safe";
     else if (d.kind === "camp") info = "Army housing +" + d.cap[lv];
     else if (d.kind === "crew") info = "Holds " + d.cap[lv] + " housing of crew troops (" + X.crewUsed() + "/" + X.crewCap() + ")";
     else if (d.kind === "core") info = "Level " + lv + " &middot; unlocks buildings up to Core L" + Math.min(C.CORE_MAX, lv + 1);
@@ -324,7 +329,7 @@
 
   // ---------- async defence raids ----------
   function defBase(noLoot) {
-    var barns = done("barn"), silos = done("silo"), lc = Math.min(S.coins * 0.5, C.LOOTC[X.coreL() - 1][1]), ls = Math.min(S.salv * 0.5, C.LOOTS[X.coreL() - 1][1]); if (noLoot) { lc = 0; ls = 0; }
+    var barns = done("barn"), silos = done("silo"), lc = Math.min(X.exposedC() * 0.5, C.LOOTC[X.coreL() - 1][1]), ls = Math.min(X.exposedS() * 0.5, C.LOOTS[X.coreL() - 1][1]); if (noLoot) { lc = 0; ls = 0; }
     var bld = cc.bld.filter(function (b) { return b.l >= 1; }).map(function (b) {
       var o = {t: b.t, x: b.x, y: b.y, l: b.l}, d = C.B[b.t];
       if (d.kind === "sto" && d.res === "c") o.lc = Math.floor(lc / Math.max(1, barns.length)); if (d.kind === "sto" && d.res === "s") o.ls = Math.floor(ls / Math.max(1, silos.length));
@@ -341,20 +346,20 @@
   X.simDefense = function (seedIn) {
     var now = Date.now(), seed = seedIn || (now % 100000 + 17), r = C.rng(seed), fh = X.coreL(), army = aiArmy(fh, r), script = Sim.aiScript(seed, army), base = defBase();
     var sim = Sim.create(base, {script: script, ulv: {}, heroLvl: Math.min(10, fh * 2), crewUnits: null}); sim.crewList = base.crewUnits; var res = sim.run(); var st = res.stars, pct = res.pct;
-    var lc = Math.min(S.coins, res.loot.c), ls = Math.min(S.salv, res.loot.s); S.coins -= lc; S.salv -= ls;
-    var tl = st === 0 ? 0 : Math.min(cc.trophies, 8 + st * 6 + Math.min(fh, 6) * 2), tg = st === 0 ? 8 : 0; cc.trophies = Math.max(0, cc.trophies - tl + tg);
+    var lc = Math.min(S.coins, res.loot.c), ls = Math.min(S.salv, res.loot.s), left = X.lossLeft(), capped = lc > left.c || ls > left.s; lc = Math.min(lc, left.c); ls = Math.min(ls, left.s); S.coins -= lc; S.salv -= ls;
+    var tl = st === 0 ? 0 : Math.min(cc.trophies, 8 + st * 6 + Math.min(fh, 6) * 2), tg = st === 0 ? 8 : 0; if (tl > left.t) { tl = left.t; capped = true; } X.lossAdd(lc, ls, tl); cc.trophies = Math.max(0, cc.trophies - tl + tg);
     if (st >= 1) { cc.shield = Math.max(cc.shield, now + (st === 3 ? 16 : pct >= 50 ? 12 : 8) * 3600000 / mul() * 1); } else stat("held");
-    var e = {ts: now, att: FAKE[seed % FAKE.length], aseed: seed, stars: st, pct: pct, lc: lc, ls: ls, tl: tl, tg: tg, held: st === 0, fh: fh, base: base, script: script, army: army};
+    var e = {ts: now, att: FAKE[seed % FAKE.length], aseed: seed, stars: st, pct: pct, lc: lc, ls: ls, tl: tl, tg: tg, held: st === 0, fh: fh, base: base, script: script, army: army, lockC: X.lockCoins(), lockS: X.lockSalv(), capped: capped};
     cc.log.unshift(e); cc.log = cc.log.slice(0, 8); cc.unseen++; BB.track("cc_defense", {stars: st, pct: pct, lc: lc, ls: ls}); X.save(); return e;
   };
   function maybeAsyncRaid() {
-    var now = Date.now(); if (now < cc.nextRaid || raid || V.ghost) return; if (cc.shield > now) { cc.nextRaid = now + 5 * 60000 / mul(); return; }
+    var now = Date.now(); if (now < cc.nextRaid || raid || V.ghost) return; if (X.beginnerMs()) { cc.nextRaid = now + 5 * 60000 / mul(); return; } if (cc.shield > now) { cc.nextRaid = now + 5 * 60000 / mul(); return; }
     if (cc.guard > now) { cc.nextRaid = now + 3 * 60000 / mul(); return; }
     if (!(cc.stats.attacks >= 1)) { cc.nextRaid = now + 3 * 60000 / mul(); return; }
     cc.nextRaid = now + (7 + Math.random() * 12) * 60000 / mul(); var e = X.simDefense(); X.toast(e.held ? "A raid on your ranch was beaten back!" : e.att + " raided your ranch! Check the LOG.");
   }
   X.offlineRaids = function () {
-    var now = Date.now(), away = (now - cc.last) / 60000; cc.last = now; if (!(cc.stats.attacks >= 1) || away < 6) return 0; var n = Math.min(3, Math.floor(away / 15)), made = 0;
+    var now = Date.now(), away = (now - cc.last) / 60000; cc.last = now; if (!(cc.stats.attacks >= 1) || away < 6 || X.beginnerMs()) return 0; var n = Math.min(3, Math.floor(away / 15)), made = 0;
     for (var i = 0; i < n; i++) { if (cc.shield > now || cc.guard > now) break; X.simDefense((now % 90000) + i * 977); made++; }
     cc.nextRaid = now + 10 * 60000 / mul(); return made;
   };
