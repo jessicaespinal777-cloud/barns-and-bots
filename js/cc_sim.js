@@ -56,11 +56,11 @@
     function addTroop(kind, x, y, team, o) {
       o = o || {}; var s;
       if (team === "a") {
-        if (kind === "hero") { var P = BB.POWER[o.lvl || 1] || [100, 100]; s = {hp: C.HERO.hp * P[0] / 100, dps: C.HERO.dps * P[1] / 100, rng: C.HERO.rng, sp: C.HERO.sp, pref: "any", sz: C.HERO.sz, art: "hero", hero: 1}; if (o.hpFrac) s.hp *= o.hpFrac; s.mxh = C.HERO.hp * P[0] / 100; }
+        if (kind === "hero") { var P = BB.POWER[o.lvl || 1] || [100, 100], H = C.HEROES[o.hid] || C.HEROES.bale; s = {hp: H.hp * P[0] / 100, dps: H.dps * P[1] / 100, rng: H.rng, sp: H.sp, pref: H.pref, sz: H.sz, art: H.art, hero: 1, hid: H.id}; if (o.hpFrac) s.hp *= o.hpFrac; s.mxh = H.hp * P[0] / 100; }
         else if (kind === "decoy") s = {hp: 500, dps: 0, rng: 0, sp: 0, pref: "any", sz: 22, art: "decoy", decoy: 1};
         else { var U = C.U[kind], L = sim.ulv[kind] || 1; s = {hp: U.hp * (1 + 0.25 * (L - 1)), dps: U.dps * (1 + 0.2 * (L - 1)), rng: U.rng, sp: U.sp, pref: U.pref, fly: U.fly, sz: U.sz, art: U.art, boom: U.boom, brad: U.brad}; }
       } else { var A = AUNITS[kind] || C.U[kind]; var LL = o.lv || 1; s = {hp: A.hp * (1 + 0.25 * (LL - 1)), dps: A.dps * (1 + 0.2 * (LL - 1)), rng: A.rng, sp: A.sp, pref: "any", fly: A.fly, sz: A.sz, art: A.art}; }
-      var u = {id: sim.uid++, k: kind, team: team, x: x, y: y, hp: s.hp, mx: s.mxh || s.hp, dps: s.dps, rng: s.rng, sp: s.sp, pref: s.pref, fly: s.fly || 0, sz: s.sz, art: s.art, boom: s.boom, brad: s.brad, hero: s.hero, decoy: s.decoy,
+      var u = {id: sim.uid++, k: kind, team: team, x: x, y: y, hp: s.hp, mx: s.mxh || s.hp, dps: s.dps, rng: s.rng, sp: s.sp, pref: s.pref, fly: s.fly || 0, sz: s.sz, art: s.art, boom: s.boom, brad: s.brad, hero: s.hero, hid: s.hid, decoy: s.decoy,
         tgt: null, path: null, pi: 0, blk: null, dead: false, bst: 0, hit: 0, ab: 0, face: 1, wob: sim.uid * 0.7, aim: 0};
       if (team === "a") sim.tr.push(u); else sim.df.push(u);
       return u;
@@ -73,7 +73,7 @@
     };
     sim.deploy = function (kind, x, y, o) {
       if (sim.done) return null; if (!sim.canDeploy(x, y)) return null;
-      var u = addTroop(kind, x, y, "a", o || {lvl: opt.heroLvl, hpFrac: opt.heroHp}); sim.deployed[kind] = (sim.deployed[kind] || 0) + 1; sim.ev.push({k: "spawn", x: x, y: y}); sim.started = true; return u;
+      var u = addTroop(kind, x, y, "a", o || {lvl: opt.heroLvl, hpFrac: opt.heroHp, hid: opt.heroId}); sim.deployed[kind] = (sim.deployed[kind] || 0) + 1; sim.ev.push({k: "spawn", x: x, y: y}); sim.started = true; return u;
     };
     sim.spell = function (kind, x, y) {
       if (sim.done) return; sim.started = true;
@@ -86,6 +86,12 @@
     };
     sim.ability = function () {
       var h = null; sim.tr.forEach(function (u) { if (u.hero && !u.dead) h = u; }); if (!h || h.ab > 0 || h.used) return false;
+      if (h.hid === "scx") {   // Murder of Crows: blind + strike the nearest defenses
+        h.used = true; h.ab = 5; h.hp = Math.min(h.mx, h.hp + h.mx * 0.2);
+        var dl = sim.bld.filter(function (b) { return !b.dead && b.kind === "def" && Math.hypot(b.cx - h.x, b.cy - h.y) < 11; }).sort(function (a, b) { return Math.hypot(a.cx - h.x, a.cy - h.y) - Math.hypot(b.cx - h.x, b.cy - h.y); }).slice(0, 4), tg = [];
+        dl.forEach(function (b) { b.cool = Math.max(b.cool, 0) + 5; b.blind = 5; tg.push([b.cx, b.cy]); dmgB(b, h.dps * 4, h); });
+        sim.ev.push({k: "crows", x: h.x, y: h.y, t: tg}); sim.ev.push({k: "boom", x: h.x, y: h.y, r: 1.6, c: "crow"}); return true;
+      }
       h.used = true; h.ab = 6; h.hp = Math.min(h.mx, h.hp + h.mx * 0.35); sim.ev.push({k: "boom", x: h.x, y: h.y, r: 2.2, c: "slam"});
       sim.bld.forEach(function (b) { if (!b.dead && b.kind !== "trap" && Math.hypot(b.cx - h.x, b.cy - h.y) < 2.2 + b.w / 2) dmgB(b, h.dps * 3, h); });
       return true;
@@ -144,7 +150,7 @@
           continue;
         }
         if (b.kind !== "def") continue;
-        b.cool -= dt; if (b.cool > 0) continue;
+        if (b.blind > 0) b.blind -= dt; b.cool -= dt; if (b.cool > 0) continue;
         var tg = b.tgt; if (tg && (tg.dead || !valid(b, tg))) tg = null;
         if (!tg) { var bd = 1e9; for (j = 0; j < sim.tr.length; j++) { u = sim.tr[j]; if (u.dead || !valid(b, u)) continue; var d = Math.hypot(u.x - b.cx, u.y - b.cy); if (d < bd) { bd = d; tg = u; } } b.tgt = tg; }
         if (!tg) { b.cool = 0.1; continue; }
@@ -169,7 +175,7 @@
         if (!u.tgt || u.tgt.dead) { u.tgt = pickTarget(u); u.path = null; if (!u.tgt) continue; }
         var t2 = u.tgt, dist = boxDist(u.x, u.y, t2);
         if (u.boom) { if (dist < 0.7) { explode(u); continue; } }
-        else if (dist <= u.rng + 0.05) { dmgB(t2, dps * dt, u); u.atk = 0.2; u.face = t2.cx < u.x ? -1 : 1; u.aim = Math.atan2(t2.cy - u.y, t2.cx - u.x); if (u.rng > 2 && (sim.t * 10 | 0) % 6 === (u.id % 6)) sim.ev.push({k: "bolt", x1: u.x, y1: u.y, x2: t2.cx, y2: t2.cy}); continue; }
+        else if (dist <= u.rng + 0.05) { dmgB(t2, dps * dt, u); u.atk = 0.2; u.face = t2.cx < u.x ? -1 : 1; u.aim = Math.atan2(t2.cy - u.y, t2.cx - u.x); if (u.rng > 2 && (sim.t * 10 | 0) % 6 === (u.id % 6)) sim.ev.push({k: "bolt", hid: u.hid, x1: u.x, y1: u.y, x2: t2.cx, y2: t2.cy}); continue; }
         if (u.fly) { moveTo(u, t2.cx, t2.cy, spd * dt); continue; }
         if (!u.path) { if (pathBudget-- <= 0) continue; u.path = findPath(u, t2); u.pi = 0; if (!u.path) { u.tgt = null; u.badT = (u.badT || 0) + 1; if (u.badT > 3) u.dead = true; continue; } }
         if (u.pi >= u.path.length) { u.path = null; continue; }

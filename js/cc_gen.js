@@ -101,9 +101,9 @@
         "..BB......",
         "..BB......",
         "......CCC.",
-        "......CCC.",
-        "......CCC.",
-        "..........",
+        "....BBCCC.",
+        "....BBCCC.",
+        "...T......",
         ".SS...VVV.",
         ".SS...VVV.",
         "......VVV."], 7, 6).filter(function (b, k, arr) { return !(b.t === "blaster" && b.x === 10 && b.y === 7) || arr.indexOf(b) === k; })};
@@ -113,19 +113,19 @@
     } else if (i === 2) {
       base = {bld: ascii([
         "..........",
-        ".B.B.B....",
-        ".....#####",
+        ".B.B.B.B..",
+        "..T..#####",
         "......#CCC",
         "......#CCC",
         "......#CCC",
-        "......#...",
+        "....T.#...",
         ".VVV..#SS.",
         ".VVV..#SS.",
         ".VVV..####"], 6, 5)};
       base.bld = base.bld.filter(function (b) { return !(b.t === "blaster" && b.x === 8); });
       base.bld.push({t: "field", x: 4, y: 14, l: 1}, {t: "rig", x: 14, y: 15, l: 1});
       base.lootC = 500; base.lootS = 22;
-    } else { base = G.make(7700 + i * 31, fh, {noGap: i === 9, diff: i / 10, lvBonus: i >= 4 && i < 7 ? 1 : 0}); base.bld.forEach(function (b) { b.lc = b.lc; }); }
+    } else { base = G.make(7700 + i * 31, fh, {noGap: i === 9, counts: i === 3 ? {blaster: 3, trap: 2} : null, diff: i / 10 + (i <= 3 ? 0.3 : 0), lvBonus: i >= 4 && i < 7 ? 1 : 0}); base.bld.forEach(function (b) { b.lc = b.lc; }); }
     if (!base.seed) {
       base.seed = 7700 + i; base.fh = fh; var lo = base.lootC, sv = base.lootS, wC = 0, wS = 0;
       base.bld.forEach(function (b) { var d = C.B[b.t]; if (d.res === "c") wC += d.kind === "sto" ? 3 : 1; if (d.res === "s") wS += d.kind === "sto" ? 3 : 1; });

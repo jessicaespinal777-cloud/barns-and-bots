@@ -45,9 +45,23 @@
     click: function () { if (ok("click", .04)) tone("square", 660, 880, .05, .08); },
     upgrade: function () { if (ok("upg", .5)) [392, 523, 659, 784, 1046].forEach(function (f, i) { tone("triangle", f, 0, .2, .2, i * .09); }); },
     deny: function () { if (ok("deny", .1)) tone("square", 160, 120, .15, .15); },
+    deploy: function () { if (ok("deploy", .05)) { tone("triangle", 330, 520, .07, .1); } },
+    pew: function () { if (ok("pew", .09)) tone("square", 760, 380, .06, .05); },
+    rail: function () { if (ok("rail", .12)) { tone("sawtooth", 1400, 300, .12, .08); noise(.05, .12, 3000); } },
+    dshot: function () { if (ok("dshot", .08)) { tone("triangle", 240, 110, .09, .08); noise(.04, .1, 1200); } },
+    boom: function () { if (ok("boom", .08)) { noise(.35, .5, 0); tone("sine", 110, 35, .35, .5); } },
+    zap: function () { if (ok("zap", .1)) { tone("sawtooth", 1200, 200, .18, .15); noise(.12, .3, 2500); } },
+    crows: function () { if (ok("crows", .3)) { [0, .07, .14, .22].forEach(function (d, i) { tone("sawtooth", 900 - i * 110, 380, .12, .12, d); }); noise(.4, .2, 2000, .05); } },
+    spell: function () { if (ok("spell", .15)) { tone("sine", 500, 900, .25, .18); tone("sine", 700, 1100, .25, .1, .06); } },
+    pop: function () { if (ok("pop", .05)) tone("sine", 420, 120, .09, .09); },
     star: function () { if (ok("star", .1)) tone("triangle", 900, 1400, .2, .2); }
   };
   BB.sfx = function (n) { try { if (SFX[n]) SFX[n](); } catch (e) {} };
   BB.audioInit = init;
+  // mute toggle shared by Settings and the HUD speaker buttons
+  BB.muteLabel = function () { return BB.S.set.mute ? "\uD83D\uDD07" : "\uD83D\uDD0A"; };
+  BB.syncMute = function () { [].forEach.call(document.querySelectorAll(".mutebtn"), function (b) { b.textContent = BB.muteLabel(); b.setAttribute("aria-pressed", BB.S.set.mute ? "true" : "false"); }); };
+  BB.setMute = function (m) { BB.S.set.mute = !!m; BB.save(); BB.syncMute(); if (!m) { init(); BB.sfx("click"); } };
+  BB.toggleMute = function () { BB.setMute(!BB.S.set.mute); return BB.S.set.mute; };
   ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.addEventListener(ev, init, {passive: true}); });
 })();

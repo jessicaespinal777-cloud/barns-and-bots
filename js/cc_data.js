@@ -8,21 +8,21 @@
   // Homestead Core level (1..4) gates everything else. mx = max count at core level 1..4
   // c/s/t: coin cost, salvage cost, minutes to build/upgrade TO level 1..4
   C.B = {
-    core:    {name: "Homestead Core", w: 3, h: 3, art: "homestead", aart: "a_core", hp: 900, kind: "core", mx: [1,1,1,1], c: [0,1500,6000,20000], s: [0,40,150,500], t: [0,2,20,120], d: "Your base's heart. Upgrading it unlocks new buildings and levels. Destroying it on a raid earns a star."},
-    tinker:  {name: "Tinker Shed", w: 2, h: 2, art: "tinker", hp: 300, kind: "work", mx: [2,3,3,4], c: [150,600,1500,3000], s: [0,0,0,0], t: [0.2,1,5,20], d: "Each shed gives you one tinker. Tinkers build and upgrade (one job each)."},
-    field:   {name: "Crop Field", w: 3, h: 2, art: null, aart: "a_harv", hp: 250, kind: "col", res: "c", rate: [0,40,70,110,160], cap: [0,500,1100,2200,4000], mx: [2,3,4,5], c: [100,400,1100,2600], s: [0,0,0,0], t: [0.2,1,6,30], d: "Grows coins over time. Tap it to collect."},
-    rig:     {name: "Scrap Rig", w: 2, h: 2, art: null, aart: "a_harv", hp: 250, kind: "col", res: "s", rate: [0,6,10,16,24], cap: [0,60,140,300,600], mx: [1,2,3,4], c: [150,500,1300,2800], s: [0,0,0,0], t: [0.3,1.5,8,35], d: "Salvages scrap. Tap it to collect."},
-    barn:    {name: "Coin Barn", w: 3, h: 3, art: "barn", aart: "a_vaultC", hp: 500, kind: "sto", res: "c", cap: [0,2000,6000,15000,40000], mx: [1,2,2,3], c: [200,800,2200,6000], s: [0,0,0,0], t: [0.3,2,10,45], d: "Stores coins. Raiders loot a share of what is inside."},
-    silo:    {name: "Salvage Silo", w: 2, h: 2, art: "silo", aart: "a_vaultS", hp: 450, kind: "sto", res: "s", cap: [0,200,500,1000,2000], mx: [1,1,2,3], c: [250,900,2400,6500], s: [0,0,0,0], t: [0.3,2,10,45], d: "Stores salvage."},
-    blaster: {name: "Hay Blaster", w: 2, h: 2, art: "t_blaster", aart: "a_blaster", hp: 300, kind: "def", dps: 16, rng: 5.5, cd: 0.7, g: 1, a: 0, mx: [2,3,4,5], c: [120,500,1500,4000], s: [0,0,10,40], t: [0.2,1.5,10,40], d: "Fires hay bales at ground troops. Cannot hit air."},
-    sniper:  {name: "Scarecrow Sniper", w: 2, h: 2, art: "t_sniper", aart: "a_sniper", hp: 240, kind: "def", dps: 24, rng: 8.5, cd: 1.1, g: 1, a: 1, mx: [0,1,2,3], c: [400,900,2400,6000], s: [0,10,25,60], t: [0.5,3,15,50], d: "Long range. Hits ground AND air, one target at a time."},
-    lobber:  {name: "Silo Lobber", w: 3, h: 3, art: "t_lobber", aart: "a_lobber", hp: 340, kind: "def", dps: 28, rng: 9.5, min: 3, cd: 3, spl: 1.5, g: 1, a: 0, mx: [0,0,1,2], c: [900,1800,3200,7500], s: [0,0,40,90], t: [0.5,4,20,60], d: "Splash damage on crowds. Cannot hit units close to it or in the air."},
-    flak:    {name: "Flak Sunflower", w: 2, h: 2, art: "t_flak", aart: "a_flak", hp: 300, kind: "def", dps: 36, rng: 7.5, cd: 1.2, spl: 1, g: 0, a: 1, mx: [0,1,1,2], c: [500,1000,2600,6500], s: [0,15,40,80], t: [0.5,4,18,55], d: "Shreds air units. Cannot hit the ground."},
+    core:    {name: "Homestead Core", w: 3, h: 3, art: "homestead", aart: "a_core", hp: 900, kind: "core", mx: [1,1,1,1], c: [0,1500,5000,15000], s: [0,40,130,400], t: [0,2,12,48], d: "Your base's heart. Upgrading it unlocks new buildings and levels. Destroying it on a raid earns a star."},
+    tinker:  {name: "Tinker Shed", w: 2, h: 2, art: "tinker", hp: 300, kind: "work", mx: [2,3,3,4], c: [150,600,1500,3000], s: [0,0,0,0], t: [0.2,1,4,12], d: "Each shed gives you one tinker. Tinkers build and upgrade (one job each)."},
+    field:   {name: "Crop Field", w: 3, h: 2, art: null, aart: "a_harv", hp: 250, kind: "col", res: "c", rate: [0,40,70,110,160], cap: [0,500,1100,2200,4000], mx: [2,3,4,5], c: [100,400,1100,2600], s: [0,0,0,0], t: [0.2,1,4,14], d: "Grows coins over time. Tap it to collect."},
+    rig:     {name: "Scrap Rig", w: 2, h: 2, art: null, aart: "a_harv", hp: 250, kind: "col", res: "s", rate: [0,6,10,16,24], cap: [0,60,140,300,600], mx: [1,2,3,4], c: [150,500,1300,2800], s: [0,0,0,0], t: [0.3,1.5,5,18], d: "Salvages scrap. Tap it to collect."},
+    barn:    {name: "Coin Barn", w: 3, h: 3, art: "barn", aart: "a_vaultC", hp: 500, kind: "sto", res: "c", cap: [0,2000,6000,15000,40000], mx: [1,2,2,3], c: [200,800,2200,6000], s: [0,0,0,0], t: [0.3,2,7,24], d: "Stores coins. Raiders loot a share of what is inside."},
+    silo:    {name: "Salvage Silo", w: 2, h: 2, art: "silo", aart: "a_vaultS", hp: 450, kind: "sto", res: "s", cap: [0,200,500,1000,2000], mx: [1,1,2,3], c: [250,900,2400,6500], s: [0,0,0,0], t: [0.3,2,7,24], d: "Stores salvage."},
+    blaster: {name: "Hay Blaster", w: 2, h: 2, art: "t_blaster", aart: "a_blaster", hp: 300, kind: "def", dps: 16, rng: 5.5, cd: 0.7, g: 1, a: 0, mx: [2,3,4,5], c: [120,500,1500,4000], s: [0,0,10,40], t: [0.2,1.5,6,22], d: "Fires hay bales at ground troops. Cannot hit air."},
+    sniper:  {name: "Scarecrow Sniper", w: 2, h: 2, art: "t_sniper", aart: "a_sniper", hp: 240, kind: "def", dps: 24, rng: 8.5, cd: 1.1, g: 1, a: 1, mx: [0,1,2,3], c: [400,900,2400,6000], s: [0,10,25,60], t: [0.5,3,9,28], d: "Long range. Hits ground AND air, one target at a time."},
+    lobber:  {name: "Silo Lobber", w: 3, h: 3, art: "t_lobber", aart: "a_lobber", hp: 340, kind: "def", dps: 28, rng: 9.5, min: 3, cd: 3, spl: 1.5, g: 1, a: 0, mx: [0,0,1,2], c: [900,1800,3200,7500], s: [0,0,40,90], t: [0.5,4,11,32], d: "Splash damage on crowds. Cannot hit units close to it or in the air."},
+    flak:    {name: "Flak Sunflower", w: 2, h: 2, art: "t_flak", aart: "a_flak", hp: 300, kind: "def", dps: 36, rng: 7.5, cd: 1.2, spl: 1, g: 0, a: 1, mx: [0,1,1,2], c: [500,1000,2600,6500], s: [0,15,40,80], t: [0.5,4,10,30], d: "Shreds air units. Cannot hit the ground."},
     trap:    {name: "Rake Trap", w: 1, h: 1, art: "t_trap", aart: "t_trap", hp: 20, kind: "trap", dmg: 220, rad: 2, mx: [0,2,3,4], c: [150,300,500,800], s: [0,0,0,0], t: [0.1,0.5,1,2], d: "Hidden. Springs on ground troops that step close, one use."},
-    camp:    {name: "Muster Yard", w: 3, h: 3, art: "muster", aart: "muster", hp: 400, kind: "camp", cap: [0,25,30,35,40], mx: [1,2,3,4], c: [200,700,2000,5000], s: [0,0,0,0], t: [0.2,1.5,8,40], d: "Holds your army. Each yard adds housing."},
-    train:   {name: "Training Barn", w: 3, h: 3, art: "trainbarn", aart: "trainbarn", hp: 400, kind: "train", mx: [1,1,2,2], c: [300,1200,3500,8000], s: [0,0,20,60], t: [0.3,3,15,50], d: "Trains troops. Higher level unlocks new troops (Roller L2, Drone L3)."},
-    workshop:{name: "Workshop", w: 3, h: 3, art: "workshop", aart: "workshop", hp: 400, kind: "lab", mx: [0,1,1,1], c: [800,2000,5000,12000], s: [0,40,100,200], t: [0.5,5,25,60], d: "Upgrade your troops with coins and salvage."},
-    crewhall:{name: "Crew Barn", w: 3, h: 3, art: "crewhall", aart: "a_bunker", hp: 500, kind: "crew", cap: [0,5,10,15,20], mx: [0,1,1,1], c: [1000,2500,6000,15000], s: [0,30,80,160], t: [0.5,6,30,90], d: "Holds helper troops donated by your Ranch Crew. They defend when raiders come close."},
+    camp:    {name: "Muster Yard", w: 3, h: 3, art: "muster", aart: "muster", hp: 400, kind: "camp", cap: [0,25,30,35,40], mx: [1,2,3,4], c: [200,700,2000,5000], s: [0,0,0,0], t: [0.2,1.5,5,22], d: "Holds your army. Each yard adds housing."},
+    train:   {name: "Training Barn", w: 3, h: 3, art: "trainbarn", aart: "trainbarn", hp: 400, kind: "train", mx: [1,1,2,2], c: [300,1200,3500,8000], s: [0,0,20,60], t: [0.3,3,9,28], d: "Trains troops. Higher level unlocks new troops (Roller L2, Drone L3)."},
+    workshop:{name: "Workshop", w: 3, h: 3, art: "workshop", aart: "workshop", hp: 400, kind: "lab", mx: [0,1,1,1], c: [800,2000,5000,12000], s: [0,40,100,200], t: [0.5,5,14,34], d: "Upgrade your troops with coins and salvage."},
+    crewhall:{name: "Crew Barn", w: 3, h: 3, art: "crewhall", aart: "a_bunker", hp: 500, kind: "crew", cap: [0,5,10,15,20], mx: [0,1,1,1], c: [1000,2500,6000,15000], s: [0,30,80,160], t: [0.5,6,15,40], d: "Holds helper troops donated by your Ranch Crew. They defend when raiders come close."},
     wall:    {name: "Fence", w: 1, h: 1, art: "fence_h", aart: "a_wall", hp: 160, kind: "wall", mx: [25,50,75,100], c: [20,45,90,180], s: [0,0,0,0], t: [0,0,0,0], d: "Drag to paint fences. Blocks raiders until they chew through."}
   };
   C.ORDER = ["tinker","field","rig","barn","silo","blaster","sniper","lobber","flak","trap","camp","train","workshop","crewhall","wall"];
@@ -42,8 +42,12 @@
     decoy: {name: "Decoy Scarecrow", c: 90, s: 0, d: "A dummy that soaks fire and lures crew defenders.", col: "#d9b36a"}
   };
   C.SPORDER = ["rain", "spark", "boost", "decoy"]; C.SPCAP = 4;
-  C.HERO = {name: "Baleguard", hp: 900, dps: 42, rng: 1.2, sp: 1.8, sz: 28};
-  C.LABMAX = 3; C.LAB = {c: [0, 600, 1800, 5000], s: [0, 20, 60, 140], t: [0, 2, 12, 40]};  // upgrade troop TO lvl
+  C.HEROES = {
+    bale: {id: "bale", name: "Baleguard", role: "Bruiser", hp: 900, dps: 42, rng: 1.2, sp: 1.8, sz: 28, pref: "any", art: "hero", port: "bg_front", surge: "Hay Slam", sd: "Heals 35% and slams nearby buildings, then hits twice as hard for 6s.", unl: null},
+    scx: {id: "scx", name: "Scarecrow-X", role: "Sharpshooter", hp: 620, dps: 38, rng: 5.5, sp: 1.5, sz: 30, pref: "def", art: "scx", port: "scx", surge: "Murder of Crows", sd: "Crows blind and strike the 4 nearest defenses for 5s, and he fires twice as fast.", unl: {story: 5}, unlTxt: "Clear story mission 5, Windmill Run"}
+  };
+  C.HERO = C.HEROES.bale;
+  C.LABMAX = 3; C.LAB = {c: [0, 600, 1700, 4200], s: [0, 20, 55, 120], t: [0, 2, 8, 24]};  // upgrade troop TO lvl
   // Leagues
   C.LEAGUES = [{n: "Seedling", min: 0, col: "#9bd06b"}, {n: "Sprout", min: 200, col: "#6fd1a0"}, {n: "Pitchfork", min: 500, col: "#7fb2ff"},
     {n: "Scarecrow", min: 900, col: "#d9a8ff"}, {n: "Harvester", min: 1400, col: "#ffb454"}, {n: "Barn-Master", min: 2000, col: "#ff6e6e"}];

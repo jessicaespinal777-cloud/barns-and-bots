@@ -4,7 +4,7 @@
   var C = BB.CC, V = BB.CCV = {}, N = C.GRID, T = C.T, GW = N * T;
   var cv, cx, dpr = 1, cssW = 360, cssH = 700, sc = 1, Hl = 700, gx = 0, gy = 0, IMG = {}, loaded = 0, ready = false, SCACHE = {}, ground = null;
   var ART = ["homestead","workshop","trainbarn","muster","crewhall","tinker","t_blaster","t_sniper","t_lobber","t_flak","t_trap","t_post","a_core","a_blaster","a_sniper","a_lobber","a_flak","a_harv","a_vaultC","a_vaultS","a_wall","a_bunker",
-    "u_bruiser","u_slinger","u_roller","u_drone","u_guard","barn","silo","silo_dmg","corn","tree","pine","flowers","pumpkins","hay_round","hay_stack","snatcher","stinger","tank","bg_front","fx_ring","fx_spark","fx_stars","i_coin","i_scrap","cow","sheep","pig"];
+    "u_bruiser","u_slinger","u_roller","u_drone","u_guard","barn","silo","silo_dmg","corn","tree","pine","flowers","pumpkins","hay_round","hay_stack","snatcher","stinger","tank","bg_front","scx","fx_ring","fx_spark","fx_stars","i_coin","i_scrap","cow","sheep","pig"];
   V.mode = "base"; V.parts = []; V.floats = []; V.projs = []; V.rings = []; V.rubble = []; V.shake = 0; V.t = 0;
   V.sel = null; V.ghost = null; V.paint = null; V.sim = null; V.base = null; V.theme = "p"; V.deploy = null; V.showDeploy = false; V.speed = 1; V.paused = false;
   V.cb = {};
@@ -74,16 +74,17 @@
   function handleEvents(ev) {
     for (var i = 0; i < ev.length; i++) {
       var e = ev[i];
-      if (e.k === "shot") { if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
-      else if (e.k === "bolt") { if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
-      else if (e.k === "boom") { V.ring(e.x, e.y, e.r, e.c === "spark" ? "#ffe65a" : e.c === "slam" ? "#ffb531" : e.c === "trap" ? "#ff7a5a" : "#fff"); V.puff(e.x, e.y, 10, e.c === "spark" ? "#ffe65a" : "#e8c27a", 50, 0.5); if (e.c === "spark") V.shake = Math.max(V.shake, 0.25); }
+      if (e.k === "shot") { if (V.cb.sfx) V.cb.sfx("dshot"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
+      else if (e.k === "bolt") { if (V.cb.sfx) V.cb.sfx(e.hid === "scx" ? "rail" : "pew"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
+      else if (e.k === "crows") { if (V.cb.sfx) V.cb.sfx("crows"); (e.t || []).forEach(function (p) { V.puff(p[0], p[1], 12, "#2a2438", 70, 0.8); V.ring(p[0], p[1], 1.4, "#46e6d2"); }); V.shake = Math.max(V.shake, 0.3); }
+      else if (e.k === "boom") { if (V.cb.sfx) V.cb.sfx(e.c === "slam" ? "slam" : e.c === "spark" ? "zap" : e.c === "crow" ? "" : "boom"); V.ring(e.x, e.y, e.r, e.c === "spark" ? "#ffe65a" : e.c === "slam" ? "#ffb531" : e.c === "crow" ? "#46e6d2" : e.c === "trap" ? "#ff7a5a" : "#fff"); V.puff(e.x, e.y, 10, e.c === "spark" ? "#ffe65a" : "#e8c27a", 50, 0.5); if (e.c === "spark") V.shake = Math.max(V.shake, 0.25); }
       else if (e.k === "bdead") {
         V.puff(e.x, e.y, e.w > 2 ? 22 : e.kind === "wall" ? 5 : 12, e.kind === "wall" ? "#9c7a4a" : "#9a9a9a", e.w > 2 ? 55 : 35, 0.8); V.rubble.push({b: e.b, t: 0});
         if (e.kind !== "wall" && V.sim) { var b = V.sim.bld[e.b]; if (b && (b.lc || b.ls)) V.float(e.x, e.y - 1.2, b.lc ? "+" + b.lc : "+" + b.ls, b.lc ? "#ffd35a" : "#8fd4ff"); }
         if (e.kind === "core") { V.shake = 0.6; } else if (e.w > 2) V.shake = Math.max(V.shake, 0.2);
         if (V.cb.sfx) V.cb.sfx(e.kind === "core" ? "boom" : "hit");
-      } else if (e.k === "udead") { if (!e.silent) V.puff(e.x, e.y, 6, e.team === "a" ? "#ffd7a0" : "#a8ff6a", 30, 0.5); }
-      else if (e.k === "spawn") V.puff(e.x, e.y, 4, "#e8e0c0", 20, 0.4);
+      } else if (e.k === "udead") { if (V.cb.sfx) V.cb.sfx(e.team === "a" ? "hurt" : "pop"); if (!e.silent) V.puff(e.x, e.y, 6, e.team === "a" ? "#ffd7a0" : "#a8ff6a", 30, 0.5); }
+      else if (e.k === "spawn") { if (V.cb.sfx) V.cb.sfx("deploy"); V.puff(e.x, e.y, 4, "#e8e0c0", 20, 0.4); }
       else if (e.k === "release") { V.ring(e.x, e.y, 2.5, "#c04cff"); if (V.cb.toast) V.cb.toast("Crew defenders released!"); }
     }
     ev.length = 0;
@@ -123,6 +124,7 @@
       // shadow
       cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h - 1, w * 0.46, h * 0.22, 0, 0, 6.3); cx.fill();
       spr(n, x + w / 2, y + h + 2, ww, cap, alpha);
+      if (b.blind > 0) { cx.fillStyle = "rgba(20,16,36,.45)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h * 0.55, w * 0.42, h * 0.38, 0, 0, 6.3); cx.fill(); cx.fillStyle = "#46e6d2"; cx.font = "bold 12px sans-serif"; cx.textAlign = "center"; cx.fillText("?", x + w / 2, y + h * 0.62); }
       if (b.t === "lobber" || b.t === "blaster") { /* barrel aim handled via sprite only */ }
       if (hit) { cx.globalCompositeOperation = "lighter"; spr(n, x + w / 2, y + h + 2, ww, cap, 0.45); cx.globalCompositeOperation = "source-over"; }
     }
@@ -189,8 +191,8 @@
     if (u.art === "snatcher" || u.art === "stinger" || u.art === "tank") flip = false;
     if (u.team === "d" && (u.art === "u_slinger" || u.art === "u_bruiser" || u.art === "u_guard" || u.art === "u_roller" || u.art === "u_drone")) { /* friendly crew on player base */ }
     if (u.decoy) cx.globalAlpha = 0.85;
-    if (u.art === "hero") { cx.strokeStyle = "rgba(255,211,90," + (0.5 + 0.3 * Math.sin(V.t * 6)) + ")"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x, y, 13, 5, 0, 0, 6.3); cx.stroke(); }
-    if (u.ab > 0) { cx.fillStyle = "rgba(255,181,49,.35)"; cx.beginPath(); cx.arc(x, y - 8, 16, 0, 6.3); cx.fill(); }
+    if (u.hero) { cx.strokeStyle = (u.hid === "scx" ? "rgba(70,230,210," : "rgba(255,211,90,") + (0.5 + 0.3 * Math.sin(V.t * 6)) + ")"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x, y, 13, 5, 0, 0, 6.3); cx.stroke(); }
+    if (u.ab > 0) { cx.fillStyle = u.hid === "scx" ? "rgba(70,230,210,.3)" : "rgba(255,181,49,.35)"; cx.beginPath(); cx.arc(x, y - 8, 16, 0, 6.3); cx.fill(); }
     if (u.bst > 0) { cx.strokeStyle = "rgba(255,154,60,.9)"; cx.lineWidth = 1; cx.beginPath(); cx.arc(x, y - sz * 0.35, sz * 0.5, 0, 6.3); cx.stroke(); }
     var tilt = u.k === "roller" ? V.t * 8 : Math.sin(V.t * 9 + u.wob) * (u.mv ? 0.08 : 0.02);
     cx.save(); cx.translate(x, y - bob); if (u.k === "roller") { cx.translate(0, -sz * 0.4); cx.rotate(tilt); cx.translate(0, sz * 0.4); } else cx.rotate(tilt);

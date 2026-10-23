@@ -1,19 +1,19 @@
 "use strict";
 // ---- Game data. Numbers come from the design Page (Baleguard cost/time/power curve). ----
-window.BB = {VERSION: "0.1.0"};
+window.BB = {VERSION: "0.4.0"};
 BB.LEVEL_CAP = 10;
 // upgrade TO level n: tier, coins, salvage, blueprints, timer minutes
 BB.UPG = [null,
   {tier: "Rookie",  coins: 0,     salv: 0,    bp: 0,  min: 0},
   {tier: "Rookie",  coins: 500,   salv: 10,   bp: 0,  min: 0},
-  {tier: "Rookie",  coins: 1200,  salv: 25,   bp: 0,  min: 5},
-  {tier: "Veteran", coins: 2500,  salv: 50,   bp: 5,  min: 30},
-  {tier: "Veteran", coins: 5000,  salv: 100,  bp: 10, min: 120},
-  {tier: "Veteran", coins: 9000,  salv: 180,  bp: 15, min: 240},
-  {tier: "Elite",   coins: 15000, salv: 300,  bp: 20, min: 480},
-  {tier: "Elite",   coins: 25000, salv: 500,  bp: 30, min: 720},
-  {tier: "Elite",   coins: 40000, salv: 800,  bp: 40, min: 1080},
-  {tier: "Legend",  coins: 60000, salv: 1200, bp: 60, min: 1440}
+  {tier: "Rookie",  coins: 1200,  salv: 25,   bp: 0,  min: 3},
+  {tier: "Veteran", coins: 2500,  salv: 50,   bp: 5,  min: 15},
+  {tier: "Veteran", coins: 5000,  salv: 100,  bp: 10, min: 45},
+  {tier: "Veteran", coins: 9000,  salv: 180,  bp: 15, min: 90},
+  {tier: "Elite",   coins: 15000, salv: 300,  bp: 20, min: 180},
+  {tier: "Elite",   coins: 25000, salv: 500,  bp: 30, min: 300},
+  {tier: "Elite",   coins: 40000, salv: 800,  bp: 40, min: 480},
+  {tier: "Legend",  coins: 60000, salv: 1200, bp: 60, min: 720}
 ];
 // [health %, damage %] by level
 BB.POWER = [null, [100,100],[108,107],[116,114],[125,122],[135,130],[146,139],[158,148],[171,158],[185,169],[200,180]];

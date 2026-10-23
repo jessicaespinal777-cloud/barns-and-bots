@@ -120,7 +120,7 @@
   function setTab(t) {
     BB.sfx("click");
     if (curTab === t) { curTab = null; $("panel").classList.add("hidden"); updateTabs(); BB.track("tab_close", {t: t}); return; }
-    curTab = t; $("panel").classList.remove("hidden"); renderPanel(t); updateTabs(); BB.track("tab_view", {t: t});
+    curTab = t; if (UI.fit) UI.fit(); $("panel").classList.remove("hidden"); renderPanel(t); updateTabs(); BB.track("tab_view", {t: t});
   }
   function updateTabs() { var tabs = document.querySelectorAll("#tabs button"); for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle("active", curTab ? tabs[i].dataset.tab === curTab : tabs[i].dataset.tab === "farm"); }
   UI.openTab = function (t) { if (curTab !== t) setTab(t); };
@@ -141,12 +141,23 @@
       '<div class="card"><h4>Coming later</h4><small>Planting crops, building, decorating, farm upgrades, and expanding to new islands are <b>not in this prototype</b>. They are on the roadmap.</small></div>' +
       '<img class="boss-pic" style="border-color:#e8b14a" src="img/pilots-and-crew-v2.jpg" alt="">';
   }
+  function heroSelHTML() {
+    var X = BB.CCUI, cc = X && X.cc && X.cc(); if (!cc) return "";
+    var cur = X.heroId(), h = '<h2 style="margin-top:4px">RAID HERO</h2><p class="sub">Pick who leads your Base Raids. Both heroes share the mech level below. Defense missions and the Vorlax duel always use Baleguard.</p><div class="hcards">';
+    ["bale", "scx"].forEach(function (id) {
+      var H = BB.CC.HEROES[id], un = X.heroUnlocked(id), on = cur === id, hp = id === cur ? cc.heroHp : (cc.hh[id] == null ? 1 : cc.hh[id]);
+      h += '<div class="hcard' + (on ? " sel" : "") + (un ? "" : " lock") + '"><div class="hpic" style="background-image:url(img/' + (id === "scx" ? "scarecrow-x" : "baleguard") + '.jpg)"></div><h4>' + H.name.toUpperCase() + "</h4><small>" + H.role + (un ? " &middot; HP " + Math.round(hp * 100) + "%" : "") + "</small>" +
+        '<div class="hsurge"><b>SURGE: ' + H.surge + "</b><br><small>" + H.sd + "</small></div>" +
+        (un ? '<button class="btn ' + (on ? "off" : "") + '" data-hero="' + id + '">' + (on ? "SELECTED" : "SELECT") + "</button>" : '<div class="hlock">\uD83D\uDD12 ' + H.unlTxt + '</div><button class="btn off" data-hero="' + id + '">LOCKED</button>') + "</div>";
+    });
+    return h + "</div>";
+  }
   function mechsHTML() {
     var p = BB.POWER[S.lvl], nxt = S.lvl < 10 ? BB.POWER[S.lvl + 1] : null, u = S.lvl < 10 ? BB.UPG[S.lvl + 1] : null;
     var req = "";
     if (u) req = '<div class="kv" style="margin-top:6px"><span>Coins</span><b style="color:' + (S.coins >= u.coins ? "#9bffa0" : "#ff8a7a") + '">' + fmt(S.coins) + " / " + fmt(u.coins) + "</b><span>Salvage</span><b style='color:" + (S.salv >= u.salv ? "#9bffa0" : "#ff8a7a") + "'>" + fmt(S.salv) + " / " + fmt(u.salv) + "</b>" +
       (u.bp ? "<span>Blueprints</span><b style='color:" + (S.bp >= u.bp ? "#9bffa0" : "#ff8a7a") + "'>" + S.bp + " / " + u.bp + "</b>" : "") + "<span>Build time</span><b>" + (u.min ? fmtTime(u.min) : "Instant") + "</b></div>";
-    var h = head("MECHS", "Baleguard is your only mech in this prototype.") +
+    var h = head("HEROES", "Baleguard and Scarecrow-X are playable. More mechs are concept art for now.") + heroSelHTML() +
       '<div class="card gold"><div class="row" style="align-items:flex-start"><div class="mech-pic" style="background-image:url(img/baleguard.jpg)"></div><div class="grow"><h4 style="font-size:18px">BALEGUARD</h4><small>Pilot: June Hale &middot; Level ' + S.lvl + " &middot; " + BB.UPG[S.lvl].tier + "</small>" +
       '<div style="margin-top:8px;font-size:12px">Health ' + p[0] + '%<div class="statbar"><i style="width:' + p[0] / 2 + '%"></i></div></div><div style="margin-top:6px;font-size:12px">Damage ' + p[1] + '%<div class="statbar d"><i style="width:' + p[1] / 1.8 + '%"></i></div></div></div></div>' +
       (nxt ? "<p class='muted' style='margin:8px 0 0'>Level " + (S.lvl + 1) + ": Health " + nxt[0] + "%, Damage " + nxt[1] + "%</p>" + req : "") +
@@ -154,8 +165,8 @@
       '<div class="card"><h4>Abilities</h4><div class="kv"><b>Hay-gun</b><span>Auto-fires at the nearest enemy.</span><b>Bale Wall</b><span>Tap: a hay wall blocks enemies and beams for ' + (S.lvl >= 4 ? 5 : 4) + " s (cooldown " + (S.lvl >= 7 ? 9 : 12) + " s).</span><b>Haymaker</b><span>Ultimate. Finishing blow in the boss fight.</span></div></div>" +
       '<div class="card"><h4>Upgrade ladder</h4><table class="t"><tr><th>Lv</th><th>Tier</th><th>Coins</th><th>Salv</th><th>BP</th><th>Time</th></tr>' +
       BB.UPG.map(function (x, i) { return i < 2 ? "" : "<tr" + (i === S.lvl + 1 ? ' style="color:#ffd77a"' : "") + "><td>" + i + "</td><td>" + x.tier + "</td><td>" + fmt(x.coins) + "</td><td>" + x.salv + "</td><td>" + (x.bp || "-") + "</td><td>" + (x.min ? fmtTime(x.min) : "Instant") + "</td></tr>"; }).join("") + "</table></div>" +
-      '<h2 style="margin-top:14px">LOCKED MECHS</h2><p class="sub">Concept art only. Not playable yet.</p>';
-    BB.OTHER_MECHS.forEach(function (m) { h += '<div class="card"><div class="row"><div class="mech-pic locked-pic" style="width:60px;height:80px;background-image:url(img/' + m.id + '.jpg)"></div><div class="grow"><h4>' + m.name + "</h4><small>" + m.role + '</small></div><span class="pill">\uD83D\uDD12 ' + m.bp + " BP</span></div></div>"; });
+      '<h2 style="margin-top:14px">MORE MECHS (coming later)</h2><p class="sub">Concept art only. Not playable yet.</p>';
+    BB.OTHER_MECHS.forEach(function (m) { if (m.id === "scarecrow-x") return; h += '<div class="card"><div class="row"><div class="mech-pic locked-pic" style="width:60px;height:80px;background-image:url(img/' + m.id + '.jpg)"></div><div class="grow"><h4>' + m.name + "</h4><small>" + m.role + '</small></div><span class="pill">\uD83D\uDD12 ' + m.bp + " BP</span></div></div>"; });
     return h;
   }
   function mapHTML() {
@@ -182,6 +193,7 @@
   function bindPanel(t) {
     var p = $("panel");
     var col = $("f-collect"); if (col) col.onclick = function () { tickFarm(); var n = Math.floor(S.farmStored); if (n < 1) { BB.sfx("deny"); return; } S.coins += n; S.farmStored -= n; BB.sfx("coin"); BB.sfx("coin"); BB.track("farm_collect", {n: n}); toast("+" + n + " coins from the barn"); BB.save(); UI.refresh(); };
+    [].forEach.call(p.querySelectorAll("[data-hero]"), function (b) { b.onclick = function () { var X = BB.CCUI; if (X.selectHero(b.dataset.hero)) { toast(BB.CC.HEROES[b.dataset.hero].name + " ready for raids"); } UI.refresh(); }; });
     var mu = $("mp-upg"); if (mu) mu.onclick = function () { UI.startUpgrade(); };
     var ms = $("mp-speed"); if (ms) ms.onclick = function () { UI.speedUp(); };
     [].forEach.call(p.querySelectorAll("[data-mock]"), function (b) { b.onclick = function () { BB.sfx("deny"); BB.track("shop_mock_tap", {item: b.dataset.mock}); toast("MOCK ONLY. No real payments exist in this prototype."); }; });
@@ -261,7 +273,7 @@
       '<div class="card"><button class="btn sec" id="s-reset" style="background:#6b2230;border-color:#ff8a8a">RESET SAVE &amp; DATA</button><small class="muted"> v' + BB.VERSION + " &middot; prototype</small></div>" +
       '<div class="btns"><button class="btn" id="s-close">CLOSE</button></div>';
     modal(h);
-    $("s-close").onclick = closeModal; $("s-mute").onclick = function () { S.set.mute = !S.set.mute; BB.save(); settings(); };
+    $("s-close").onclick = closeModal; $("s-mute").onclick = function () { BB.toggleMute(); settings(); };
     $("s-copy").onclick = function () { var j = JSON.stringify({report: BB.report(), events: BB.events(), save: S}, null, 1); if (navigator.clipboard) navigator.clipboard.writeText(j).then(function () { toast("Copied JSON"); }, function () { toast("Copy blocked: use Download"); }); else toast("Use Download"); };
     $("s-dl").onclick = function () { var b = new Blob([JSON.stringify({report: BB.report(), events: BB.events(), save: S}, null, 1)], {type: "application/json"}), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "barns-and-bots-playtest.json"; a.click(); };
     [].forEach.call(document.querySelectorAll("[data-tm]"), function (b) { b.onclick = function () { S.set.timerMul = +b.dataset.tm; BB.save(); settings(); }; });
@@ -282,8 +294,8 @@
     $("btn-battle").onclick = function () { BB.audioInit(); UI.briefing(nextMission()); };
     $("btn-gear").onclick = function () { BB.audioInit(); BB.sfx("click"); settings(); };
     $("modal").addEventListener("pointerdown", function (e) { if (e.target === $("modal") && $("modal").querySelector("#m-no, #s-close")) closeModal(); });
-    function fit() { $("panel").style.top = ($("home").querySelector(".topbar").offsetHeight + 6) + "px"; $("nova").style.top = ($("home").querySelector(".topbar").offsetHeight + 8) + "px"; }
-    fit(); window.addEventListener("resize", fit);
+    function fit() { var th = $("home").querySelector(".topbar").offsetHeight; if (!th) return; /* home is display:none while the ranch is showing */ $("panel").style.top = (th + 6) + "px"; $("nova").style.top = (th + 8) + "px"; }
+    UI.fit = fit; fit(); window.addEventListener("resize", fit);
     UI.refresh(); setInterval(UI.tick, 1000);
   };
 })();

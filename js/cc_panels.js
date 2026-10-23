@@ -50,7 +50,7 @@
         h += '<div class="card row"><img class="uimg s" src="assets/' + C.U[k].art + '.webp" alt=""><div class="grow"><h4>' + C.U[k].name + ' L' + lv + " \u2192 L" + to + "</h4><small>+25% HP, +20% damage &middot; " + C.fmtT(C.LAB.t[to - 1]) + '</small></div><div class="rt"><button class="btn ' + (ok ? "" : "off") + '" data-lab="' + k + '">' + cost(C.LAB.c[to - 1], C.LAB.s[to - 1]) + "</button></div></div>";
       });
     }
-    h += '<h3 class="sec">Hero</h3><div class="card row"><img class="uimg" src="assets/bg_front.webp" alt="" style="object-position:50% 20%"><div class="grow"><h4>Baleguard L' + S.lvl + "</h4><small>HP " + Math.round(c.heroHp * 100) + '%. Regenerates between raids. Level it up on the HERO screen.</small>' + bar(c.heroHp * 100, c.heroHp < 0.3 ? "r" : "g") + '</div><div class="rt"><button class="btn sec" data-nav="hero">HERO</button></div></div>';
+    h += '<h3 class="sec">Hero</h3><div class="card row"><img class="uimg" src="assets/' + X.hero().port + '.webp" alt="" style="object-position:50% 20%"><div class="grow"><h4>' + X.hero().name + ' L' + S.lvl + "</h4><small>HP " + Math.round(c.heroHp * 100) + '%. SURGE: ' + X.hero().surge + '. Change hero or level up on the HERO screen.</small>' + bar(c.heroHp * 100, c.heroHp < 0.3 ? "r" : "g") + '</div><div class="rt"><button class="btn sec" data-nav="hero">HERO</button></div></div>';
     return h;
   }
   function crewHTML() {
@@ -164,10 +164,10 @@
     [].forEach.call(document.querySelectorAll("#b-nav button[data-p]"), function (b) { b.onclick = function () { BB.audioInit && BB.audioInit(); openPanel(b.dataset.p); }; });
     $("btn-hero").onclick = toHero; $("btn-base").onclick = function () { BB.sfx("click"); X.show(); }; $("btn-attack").onclick = function () { BB.audioInit && BB.audioInit(); BB.sfx("click"); X.closePanel(); attackMenu(); BB.track("cc_attack_menu", {}); };
     $("b-log").onclick = function () { BB.sfx("click"); logModal(); }; $("b-gear").onclick = function () { BB.audioInit && BB.audioInit(); BB.sfx("click"); BB.UI.settings(); };
-    $("r-end").onclick = X.endBattle; $("r-speed").onclick = function () { X.setSpeed(); BB.sfx("click"); };
+    $("b-mute").onclick = function () { BB.toggleMute(); }; $("r-mute").onclick = function () { BB.toggleMute(); }; BB.syncMute(); $("r-end").onclick = X.endBattle; $("r-speed").onclick = function () { X.setSpeed(); BB.sfx("click"); };
     $("b-daily").onclick = function () { BB.sfx("click"); dailyModal(); };
   };
-  function toHero() { X.closePanel(); $("base").classList.remove("active"); $("home").classList.add("active"); BB.UI.refresh(); BB.sfx("click"); }
+  function toHero() { X.closePanel(); $("base").classList.remove("active"); $("home").classList.add("active"); if (BB.UI.fit) BB.UI.fit(); BB.UI.refresh(); BB.sfx("click"); }
   X.afterInit = function (missed) {
     if (!cc().seen.intro) intro(); else if (cc().unseen) awayReport(); else if (cc().daily.last !== day()) setTimeout(dailyModal, 400);
     cc().stats.core = X.coreL(); window.addEventListener("beforeunload", function () { cc().last = Date.now(); X.save(); }); document.addEventListener("visibilitychange", function () { if (document.hidden) { cc().last = Date.now(); X.save(); } else { var m = X.offlineRaids(); if (cc().unseen && $("base").classList.contains("active") && !X.raidOn()) awayReport(); } });
