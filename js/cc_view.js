@@ -6,7 +6,7 @@
   var ART = ["homestead","workshop","trainbarn","muster","crewhall","tinker","t_blaster","t_sniper","t_lobber","t_flak","t_trap","t_post","a_core","a_blaster","a_sniper","a_lobber","a_flak","a_harv","a_vaultC","a_vaultS","a_wall","a_bunker",
     "u_bruiser","u_slinger","u_roller","u_drone","u_guard","barn","silo","silo_dmg","corn","tree","pine","flowers","pumpkins","hay_round","hay_stack","snatcher","stinger","tank","bg_front","scx","fx_ring","fx_spark","fx_stars","i_coin","i_scrap","cow","sheep","pig","chicken","cloud1","cloud2","cloud3","u_chick","u_sow","u_hound","u_wrench","u_mule","u_spinner","u_badger","u_kestrel","al_raker","al_blink","al_bastion","al_shard","t_fan","t_storm","t_coil","t_crane","t_driver","t_shroud","a_fan","a_storm","a_coil","a_crane","a_driver","a_shroud","tp_snare","tp_mine","tp_cache","tp_stake"];
   V.mode = "base"; V.parts = []; V.floats = []; V.projs = []; V.rings = []; V.rubble = []; V.shake = 0; V.t = 0;
-  V.sel = null; V.ghost = null; V.paint = null; V.sim = null; V.base = null; V.theme = "p"; V.deploy = null; V.showDeploy = false; V.speed = 1; V.paused = false;
+  V.offs = {}; V.lift = null; V.sel = null; V.ghost = null; V.paint = null; V.sim = null; V.base = null; V.theme = "p"; V.deploy = null; V.showDeploy = false; V.speed = 1; V.paused = false;
   V.cb = {}; V.fx = []; V.showRanges = false; V.showHeat = false; V.analysis = null;
   V.load = function () {
     if (loaded) return; loaded = 1; var done = 0;
@@ -15,7 +15,7 @@
   V.ready = function () { return ready; };
   V.init = function (canvas) {
     cv = canvas; cx = cv.getContext("2d"); V.load(); window.addEventListener("resize", V.resize); V.resize();
-    cv.addEventListener("pointerdown", down); cv.addEventListener("pointermove", move); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+    if (BB.TCH) BB.TCH.attach(cv, {down: down, move: move, up: up}); else { cv.addEventListener("pointerdown", down); cv.addEventListener("pointermove", move); cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up); }
     cv.style.touchAction = "none";
   };
   V.resize = function () {
@@ -39,7 +39,39 @@
     if (flip) { cx.save(); cx.translate(x, 0); cx.scale(-1, 1); cx.drawImage(c, -w / 2, by - h, w, h); cx.restore(); } else cx.drawImage(c, x - w / 2, by - h, w, h);
     cx.globalAlpha = 1; return true;
   }
-  function tileXY(cxp, cyp) { var r = cv.getBoundingClientRect(); var lx = (cxp - r.left) / r.width * 360, ly = (cyp - r.top) / r.height * Hl; return [(lx - gx) / T, (ly - gy) / T]; }
+  // ---- v0.7 user camera: pan / pinch zoom / focus tween / tilt parallax, composed with the cinematic FX camera ----
+  var uc = V.uc = {z: 1, x: 0, y: 0, vx: 0, vy: 0, anim: null}; V.tilt = {x: 0, y: 0};
+  function mat(shx, shy) {
+    var FXo = BB.FX, cam = FXo && FXo.cam, cz = cam && cam.z > 1.002 ? cam.z : 1, tx0 = shx, ty0 = shy;
+    if (cz > 1) { tx0 -= cam.fx * (cz - 1); ty0 -= cam.fy * (cz - 1); }
+    var uz = uc.z, c = 180, cy = Hl / 2, tl = V.tilt, ux = uc.x + tl.x * 6, uy = uc.y + tl.y * 6;
+    return {a: cz * uz, e: (tx0 - c) * uz + c + ux, f: (ty0 - cy) * uz + cy + uy, cz: cz};
+  }
+  V.mat = mat;
+  function clampPan(soft) {
+    var mx = (uc.z - 1) * 180 + (soft ? 14 : 4), my = (uc.z - 1) * Hl / 2 + (soft ? 14 : 4);
+    if (uc.x > mx) uc.x = mx; if (uc.x < -mx) uc.x = -mx; if (uc.y > my) uc.y = my; if (uc.y < -my) uc.y = -my;
+  }
+  V.camPan = function (dx, dy) { uc.anim = null; uc.x += dx; uc.y += dy; var mx = (uc.z - 1) * 180 + 26, my = (uc.z - 1) * Hl / 2 + 26; uc.x = Math.max(-mx, Math.min(mx, uc.x)); uc.y = Math.max(-my, Math.min(my, uc.y)); };
+  V.camFling = function (vx, vy) { uc.vx = vx; uc.vy = vy; };
+  V.camZoomAt = function (nz, qx, qy) {
+    nz = Math.max(1, Math.min(2.6, nz)); var c = 180, cy = Hl / 2, pxw = (qx - c - uc.x) / uc.z, pyw = (qy - cy - uc.y) / uc.z; uc.anim = null; uc.z = nz; uc.x = qx - c - pxw * nz; uc.y = qy - cy - pyw * nz; clampPan(true);
+  };
+  V.camFocus = function (tx, ty, z, dur) {
+    z = Math.max(1, Math.min(2.6, z || 1.8)); var wx = gx + tx * T, wy = gy + ty * T, tgx = -(wx - 180) * z, tgy = -(wy - Hl / 2) * z, mx = (z - 1) * 180 + 4, my = (z - 1) * Hl / 2 + 4;
+    uc.vx = uc.vy = 0; uc.anim = {t: 0, d: dur || 0.45, z0: uc.z, x0: uc.x, y0: uc.y, z1: z, x1: Math.max(-mx, Math.min(mx, tgx)), y1: Math.max(-my, Math.min(my, tgy))};
+  };
+  V.camReset = function (smooth) { uc.vx = uc.vy = 0; if (smooth) uc.anim = {t: 0, d: 0.4, z0: uc.z, x0: uc.x, y0: uc.y, z1: 1, x1: 0, y1: 0}; else { uc.z = 1; uc.x = 0; uc.y = 0; uc.anim = null; } };
+  V.camStep = function (dt) {
+    if (uc.anim) { var a = uc.anim; a.t += dt; var k = Math.min(1, a.t / a.d), e = 1 - Math.pow(1 - k, 3); uc.z = a.z0 + (a.z1 - a.z0) * e; uc.x = a.x0 + (a.x1 - a.x0) * e; uc.y = a.y0 + (a.y1 - a.y0) * e; if (k >= 1) uc.anim = null; return; }
+    if (Math.abs(uc.vx) > 1 || Math.abs(uc.vy) > 1) { uc.x += uc.vx * dt; uc.y += uc.vy * dt; var f = Math.exp(-4.2 * dt); uc.vx *= f; uc.vy *= f; }
+    else { uc.vx = uc.vy = 0; }
+    var mx = (uc.z - 1) * 180 + 4, my = (uc.z - 1) * Hl / 2 + 4; // spring back from overscroll
+    if (uc.x > mx) uc.x += (mx - uc.x) * Math.min(1, dt * 10); if (uc.x < -mx) uc.x += (-mx - uc.x) * Math.min(1, dt * 10); if (uc.y > my) uc.y += (my - uc.y) * Math.min(1, dt * 10); if (uc.y < -my) uc.y += (-my - uc.y) * Math.min(1, dt * 10);
+  };
+  V.toClient = function (lx, ly) { var r = cv.getBoundingClientRect(), M = mat(0, 0); return [r.left + (lx * M.a + M.e) / 360 * r.width, r.top + (ly * M.a + M.f) / Hl * r.height]; };
+  V.logical = function (cxp, cyp) { var r = cv.getBoundingClientRect(), M = mat(0, 0), lx = (cxp - r.left) / r.width * 360, ly = (cyp - r.top) / r.height * Hl; return [(lx - M.e) / M.a, (ly - M.f) / M.a]; };
+  function tileXY(cxp, cyp) { var p = V.logical(cxp, cyp); return [(p[0] - gx) / T, (p[1] - gy) / T]; }
   V.tileFrom = tileXY;
 
   // ---------- ground ----------
@@ -74,7 +106,7 @@
   var ZC = {clamp: "#a8e8ff", stitch: "#9be26b", veil: "#c9b8ff", snare: "#d8c080", mine: "#ff9a3a", cache: "#ffd35a", stake: "#5af0ff", fuse: "#ffb040", surge: "#ffd35a"};
   function handleEvents(ev) {
     for (var i = 0; i < ev.length; i++) {
-      var e = ev[i]; if (BB.FX && BB.FX.ev(e)) continue;
+      var e = ev[i]; if (BB.TCH && BB.TCH.ev(e)) continue; if (BB.FX && BB.FX.ev(e)) continue;
       if (e.k === "shot") { if (V.cb.sfx) V.cb.sfx("dshot"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
       else if (e.k === "bolt") { if (V.cb.sfx) V.cb.sfx(e.hid === "scx" ? "rail" : "pew"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
       else if (e.k === "crows") { if (V.cb.sfx) V.cb.sfx("crows"); (e.t || []).forEach(function (p) { V.puff(p[0], p[1], 12, "#2a2438", 70, 0.8); V.ring(p[0], p[1], 1.4, "#46e6d2"); }); V.shake = Math.max(V.shake, 0.3); }
@@ -96,7 +128,7 @@
     ev.length = 0;
   }
   V.update = function (dt) {
-    V.t += dt; var i; if (BB.FX) BB.FX.update(dt);
+    V.t += dt; var i; if (V.ghost && V.ghost.vx !== undefined) { var gk = Math.min(1, dt * 20); V.ghost.vx += (V.ghost.x - V.ghost.vx) * gk; V.ghost.vy += (V.ghost.y - V.ghost.vy) * gk; } if (BB.FX) BB.FX.update(dt); V.camStep(dt); if (BB.TCH) BB.TCH.update(dt);
     if (V.shake > 0) V.shake = Math.max(0, V.shake - dt);
     for (i = V.parts.length - 1; i >= 0; i--) { var p = V.parts[i]; p.l -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 25 * dt; if (p.l <= 0) V.parts.splice(i, 1); }
     for (i = V.floats.length - 1; i >= 0; i--) { var f = V.floats[i]; f.t += dt; f.y -= 14 * dt; if (f.t > 1.3) V.floats.splice(i, 1); }
@@ -156,7 +188,13 @@
     // placement grid
     if (V.ghost || V.paint) { cx.strokeStyle = "rgba(255,255,255,.28)"; cx.lineWidth = 0.5; cx.beginPath(); for (var i = C.RING; i <= N - C.RING; i++) { cx.moveTo(gx + i * T, gy + C.RING * T); cx.lineTo(gx + i * T, gy + (N - C.RING) * T); cx.moveTo(gx + C.RING * T, gy + i * T); cx.lineTo(gx + (N - C.RING) * T, gy + i * T); } cx.stroke(); }
     var opts = {wallAt: wl, bubble: V.cb.bubble};
-    sorted.forEach(function (b) { if (V.ghost && V.ghost.moveId === b.id) return; drawBuilding(b, "p", opts); decorate(b); });
+    var liftB = V.lift ? V.lift.b : null, hasOffs = false, ok0; for (ok0 in V.offs) { hasOffs = true; break; }
+    if (liftB) sorted = sorted.filter(function (b) { return b !== liftB; }).concat([liftB]); else if (hasOffs) sorted = sorted.slice().sort(function (a, b) { var oa = V.offs[a.id], ob = V.offs[b.id]; return (a.y + C.B[a.t].h + (oa ? oa.dy : 0)) - (b.y + C.B[b.t].h + (ob ? ob.dy : 0)); });
+    sorted.forEach(function (b) {
+      if (V.ghost && V.ghost.moveId === b.id) return; var o = hasOffs || liftB ? V.offs[b.id] : null;
+      if (o) { var dd0 = C.B[b.t]; cx.save(); if (o.z > 0.5) { cx.fillStyle = "rgba(0,0,0,.28)"; cx.beginPath(); cx.ellipse(gx + (b.x + o.dx + dd0.w / 2) * T, gy + (b.y + o.dy + dd0.h) * T - 2, dd0.w * T * 0.42, 4 + o.z * 0.25, 0, 0, 6.3); cx.fill(); } cx.translate(o.dx * T, o.dy * T - o.z); if (o.z > 4) { cx.translate(gx + (b.x + dd0.w / 2) * T, gy + (b.y + dd0.h) * T); cx.scale(1.04, 1.04); cx.translate(-(gx + (b.x + dd0.w / 2) * T), -(gy + (b.y + dd0.h) * T)); } }
+      drawBuilding(b, "p", opts); decorate(b); if (o) cx.restore();
+    });
     if (V.sel && !(V.ghost && V.ghost.moveId === V.sel.id)) { var s = V.sel, d = C.B[s.t]; cx.strokeStyle = "rgba(255,230,90," + (0.7 + Math.sin(V.t * 8) * 0.3) + ")"; cx.lineWidth = 1.5; cx.strokeRect(gx + s.x * T - 1, gy + s.y * T - 1, d.w * T + 2, d.h * T + 2);
       if (d.kind === "def") { cx.strokeStyle = "rgba(255,255,255,.5)"; cx.setLineDash([3, 3]); cx.beginPath(); cx.arc(gx + (s.x + d.w / 2) * T, gy + (s.y + d.h / 2) * T, d.rng * T, 0, 6.3); cx.stroke(); cx.setLineDash([]); } }
     if (V.showRanges) sorted.forEach(function (b) { var dd = C.B[b.t]; if (dd.kind === "def") { cx.strokeStyle = dd.sup ? "rgba(120,200,255,.5)" : "rgba(255,255,255,.4)"; cx.lineWidth = 1; cx.setLineDash([3, 3]); cx.beginPath(); cx.arc(gx + (b.x + dd.w / 2) * T, gy + (b.y + dd.h / 2) * T, dd.rng * T, 0, 6.3); cx.stroke(); cx.setLineDash([]); } });
@@ -170,9 +208,9 @@
     }
   }
   function drawGhost() {
-    var g = V.ghost, d = C.B[g.t]; if (g.paintHint) return; var x = gx + g.x * T, y = gy + g.y * T;
+    var g = V.ghost, d = C.B[g.t]; if (g.paintHint) return; if (g.vx === undefined) { g.vx = g.x; g.vy = g.y; } var x = gx + g.vx * T, y = gy + g.vy * T;
     cx.fillStyle = g.ok ? "rgba(90,255,120,.35)" : "rgba(255,70,70,.4)"; cx.fillRect(x, y, d.w * T, d.h * T);
-    cx.globalAlpha = 0.85; drawBuilding({t: g.t, x: g.x, y: g.y, l: g.l || 1}, "p", {}); cx.globalAlpha = 1;
+    cx.globalAlpha = 0.85; drawBuilding({t: g.t, x: g.vx, y: g.vy, l: g.l || 1}, "p", {}); cx.globalAlpha = 1;
     if (d.kind === "def") { cx.strokeStyle = "rgba(255,255,255,.55)"; cx.setLineDash([3, 3]); cx.beginPath(); cx.arc(x + d.w * T / 2, y + d.h * T / 2, d.rng * T, 0, 6.3); cx.stroke(); cx.setLineDash([]); }
   }
 
@@ -240,8 +278,12 @@
     if (!cx || !ground) return;
     var FXo = BB.FX, cam = FXo && FXo.cam, z = cam ? cam.z : 1, s = sc * dpr, shk = (V.shake > 0 ? V.shake * 8 : 0) + (cam ? cam.shake : 0), sh = shk > 0 ? (Math.random() - 0.5) * shk * 2 : 0, sv = shk > 0 ? (Math.random() - 0.5) * shk * 2 : 0;
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.drawImage(ground, 0, 0);
-    if (z > 1.002) { var fx0 = cam.fx, fy0 = cam.fy; cx.setTransform(s * z, 0, 0, s * z, (sh - fx0 * (z - 1)) * s, (sv - fy0 * (z - 1)) * s); cx.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 360, Hl); }
-    else cx.setTransform(s, 0, 0, s, sh * s, sv * s);
+    var M = mat(sh, sv);
+    if (M.a > 1.002 || Math.abs(M.e) > 0.01 || Math.abs(M.f) > 0.01) { // damped background layer = parallax against the world layer
+      var ag = 1 + (M.a - 1) * 0.6, c0 = 180, cy0 = Hl / 2, offx = M.e - (1 - M.a) * c0, offy = M.f - (1 - M.a) * cy0;
+      cx.setTransform(s * ag, 0, 0, s * ag, ((1 - ag) * c0 + offx * 0.6) * s, ((1 - ag) * cy0 + offy * 0.6) * s); cx.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 360, Hl);
+    }
+    cx.setTransform(s * M.a, 0, 0, s * M.a, M.e * s, M.f * s);
     if (!ready) { cx.fillStyle = "#fff"; cx.font = "bold 14px sans-serif"; cx.textAlign = "center"; cx.fillText("Loading art...", 180, Hl / 2); return; }
     if (FXo) FXo.drawBelow();
     drawGroundProps();
@@ -261,6 +303,7 @@
     V.parts.forEach(function (p) { cx.globalAlpha = Math.max(0, p.l / p.m); cx.fillStyle = p.c; cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, 6.3); cx.fill(); }); cx.globalAlpha = 1;
     cx.font = "bold 9px sans-serif"; cx.textAlign = "center"; cx.lineWidth = 2.5; cx.strokeStyle = "rgba(0,0,0,.7)";
     V.floats.forEach(function (f) { cx.globalAlpha = Math.max(0, 1 - f.t / 1.3); cx.strokeText(f.s, f.x, f.y); cx.fillStyle = f.c; cx.fillText(f.s, f.x, f.y); }); cx.globalAlpha = 1;
+    if (BB.TCH) BB.TCH.draw(cx, gx, gy, T);
   };
 
   // ---------- input ----------
@@ -269,13 +312,14 @@
     if (V.cb.audio) V.cb.audio(); var t = tileXY(e.clientX, e.clientY), x = t[0], y = t[1]; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); drag = {x0: x, y0: y, moved: false, id: e.pointerId, onGhost: false};
     if (V.mode === "raid") { if (BB.FX) { var oid = BB.FX.orbAt(x, y); if (oid >= 0) { if (V.cb.puTap) V.cb.puTap(oid); return; } } if (V.cb.raidTap) V.cb.raidTap(x, y, true); return; }
     if (V.paint) { V.paint.on = true; V.cb.paintAt && V.cb.paintAt(Math.floor(x), Math.floor(y)); return; }
-    if (V.ghost) { var g = V.ghost, d = C.B[g.t]; if (x >= g.x - 1 && x <= g.x + d.w + 1 && y >= g.y - 1 && y <= g.y + d.h + 1) { drag.onGhost = true; drag.off = [x - g.x, y - g.y]; return; } }
+    if (V.ghost) { var g = V.ghost, d = C.B[g.t]; if (x >= g.x - 1 && x <= g.x + d.w + 1 && y >= g.y - 1 && y <= g.y + d.h + 1) { drag.onGhost = true; drag.off = [x - g.x, y - g.y]; return; } drag.any = true; }
   }
   function move(e) {
     if (!drag || e.pointerId !== drag.id) return; var t = tileXY(e.clientX, e.clientY), x = t[0], y = t[1];
     if (Math.hypot(x - drag.x0, y - drag.y0) > 0.4) drag.moved = true;
     if (V.mode === "raid") { if (drag.moved && V.cb.raidTap) V.cb.raidTap(x, y, false); return; }
     if (V.paint && V.paint.on) { V.cb.paintAt && V.cb.paintAt(Math.floor(x), Math.floor(y)); return; }
+    if (V.ghost && drag.any && drag.moved) { var gd = C.B[V.ghost.t]; V.cb.ghostMove && V.cb.ghostMove(Math.round(x - gd.w / 2), Math.round(y - gd.h / 2)); return; }
     if (V.ghost && drag.onGhost) { V.cb.ghostMove && V.cb.ghostMove(Math.round(x - drag.off[0]), Math.round(y - drag.off[1])); }
   }
   function up(e) {
@@ -285,6 +329,6 @@
     if (V.ghost) { if (!d.moved && !d.onGhost) V.cb.ghostMove && V.cb.ghostMove(Math.round(x - C.B[V.ghost.t].w / 2), Math.round(y - C.B[V.ghost.t].h / 2)); return; }
     if (!d.moved) V.cb.tap && V.cb.tap(x, y);
   }
-  V.ctx = function () { return {cx: cx, gx: gx, gy: gy, Hl: Hl, spr: spr, rect: function () { return cv.getBoundingClientRect(); }}; };
+  V.ctx = function () { return {cx: cx, gx: gx, gy: gy, Hl: Hl, spr: spr, toClient: V.toClient, rect: function () { return cv.getBoundingClientRect(); }}; };
   V.dims = function () { return {Hl: Hl, gy: gy, GW: GW}; };
 })();

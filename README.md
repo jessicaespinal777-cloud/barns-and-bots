@@ -1,4 +1,4 @@
-# Barns & Bots — playable prototype v0.6.0
+# Barns & Bots — playable prototype v0.7.0
 
 Build your farm. Defend your herd. A mobile-first game prototype with a base-building and raid loop built on genre-standard mechanics (base building, builder timers, resource collectors, raids, 3 stars, trophies, leagues, co-op crew), plus the original hero-mech action battles and a 3-phase boss duel (Vorlax). Graphics were upgraded: generated sprites, juice, HUD and results screens.
 
@@ -67,6 +67,49 @@ Why: playtest feedback said v0.5a was "underwhelming and not stimulating enough"
 - Day/night lighting is a colour overlay, not per-building shadows.
 - Orb, combo, Power Surge and tier names are working labels (see LEGAL-NOTES). The earlier v0.5 deferred list still applies.
 
+## What is new in v0.7.0 (hands-on touch controls)
+Design notes: ../v07-interaction-critique.md (what was passive in v0.6, and why each gesture was added). All gestures use genre-standard mechanics; names are original. One-time on-screen hint chips teach each gesture (Settings > Show hints replays them), every gesture gives visual + sound + haptic feedback in the same frame, and each touch is a recorded sim action so replays reproduce it.
+
+### Raid controls
+| Gesture | What it does |
+|---|---|
+| Tap / drag along the arena edge | Deploy one troop / stream troops along the path (limited by your army). Taps still deploy instantly. |
+| Perfect ring | A ring shrinks on the deploy zone; a tap inside the bright window gives a PERFECT deploy (small bonus, capped). |
+| Tap map (hero out) | Steer the hero to that point (dashed line + marker). |
+| Tap a building / defender | Focus-target it (hero and nearby troops prefer it). |
+| Hold on the hero | Channel: a charge-up ring that powers a heavier hero attack. |
+| Swipe from the hero | Dash/dodge with a short invulnerability window (i-frames). |
+| Double-tap | Fire the hero ability when the meter is full. |
+| Hold on empty ground | Rally flag: nearby troops converge on that spot. |
+| Drag from a troop cluster | Draw a march path for that squad. |
+| Pick a spell, then drag | Aim with a live radius preview; release to cast. Flick to throw it (casts where it lands). |
+| Tap power orbs / swipe over them | Collect (magnet swipe pulls several). |
+| Tap a glowing weak point | Crit hit on a defender. |
+| Red ground rings | Sniper and lobber telegraphs aimed at the hero: step or dash out before they land (counts a DODGE). |
+| Power Surge beat pad | Tap on the beat while the surge runs for a stronger, longer effect. |
+| Pinch / two-finger drag | Zoom and pan the battlefield. |
+
+### Base controls
+- Drag-and-drop building placement with snap grid, ghost preview (green/red), tween into place; long-press a building to lift and rearrange it (Move also still works).
+- Tap animals, tinkers and workers: they hop, honk, moo or cluck with sounds. Pet or feed animals for small rewards (rate-limited to 30 a day).
+- Swipe-sweep or shake the device to collect all resources; flick loose collectables.
+- Pinch zoom, pan with inertia, double-tap a building to focus on it, optional tilt/parallax camera and shake-to-collect (Settings > Tilt & shake; uses device motion where the browser allows it).
+- Wind-up crank on the selection bar: drag the handle across to start an upgrade (5% faster build once per upgrade); tap a building under construction to speed it up with sparks.
+- CROWS button: 25 second "Scare the Crows" tap/swipe minigame (avoid the hens, golden crow worth 3). First play each day gives a daily bonus (up to 900 coins and 10 salvage); more plays are free practice.
+
+### Simple controls
+Settings > Simple controls turns on auto-driving in raids (one-handed or low-effort play): it auto-deploys the hero and troops, casts spells, collects orbs, triggers the surge and ability, and focuses targets. The same primitives are recorded, so the replay matches. It uses the same sim, so results are comparable to manual play, but it will not earn skill bonuses such as perfect or weak-point hits.
+
+### v0.7 deferred and known gaps (honest list)
+- Building ROTATION was cut: the isometric-style art has only one facing per building, so rotating would be a visual no-op. Drag, move and rearrange are done.
+- Controls were verified with scripted touch events (Chrome DevTools touch input at 390x844: tap, drag, hold, swipe, double-tap, pinch) and zero console errors, not on a real phone with real thumbs. Dead zones, hold times, dash distance and the beat-pad window are first guesses and need human tuning.
+- Shake-to-collect and tilt rely on device motion sensors (iOS needs a permission prompt); both are untested on hardware. Swipe-sweep is the reliable path.
+- Haptics use the Vibration API (Android Chrome); iOS Safari has no web vibration, so iOS gets sound and visual feedback only.
+- Skill bonuses are capped at 6% so skilled input helps but never replaces troops. Tuning is unvalidated.
+- Fps measured only in headless desktop Chrome (about 60); not measured on a mid-range phone.
+- The tutorial arrow pointing at ATTACK can overlap the selection bar for a moment on the very first session.
+- Gesture and minigame names are working labels (see LEGAL-NOTES). Earlier deferred lists still apply.
+
 ## Honest depth assessment
 The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 16 building types (incl. fences), 4 troop types, 4 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
 
@@ -77,6 +120,7 @@ The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) i
 - Gems, shop and Harvest Pass are mock features: no real payments are processed. Real store release needs a privacy policy and platform-policy checks.
 - v0.5 NAMES ARE WORKING LABELS pending trademark clearance: Rivet Chick, Scrap Sow, Rusthound, Wrenchling, Clod Mule, Shearspinner, Burrow Badger, Kite Kestrel, Seed Fan, Stormpost, Haywire Coil, Harpoon Crane, Fence Driver, Chaff Shroud, Snare Reel, Chaff Mine, Decoy Cache, Pulse Stake, Ground Clamp, Fence Stitch, Fog Veil and the alien names (Raker, Blink, Bastion, Shard). None has been searched. The v0.5 design came from a mechanics-only study; no names, art or text were copied. Search each name before public use and rename any that collide.
 - v0.6 NAMES ARE WORKING LABELS pending trademark clearance: Turbo Orb, Bubble Orb, Pulse Orb, Loot Orb, Spark Orb, Frenzy, Overdrive, Rampage, Power Surge, Murder of Crows (Scarecrow-X ultimate). All music and sound effects are synthesized in code at runtime (no samples, no third-party audio). Effects and animations are original procedural drawing.
+- v0.7 NAMES ARE WORKING LABELS pending trademark clearance: Scare the Crows, Scarecrow Legend (minigame result), Perfect deploy, Rally flag, March path, Wind-up crank, Beat pad, Dodge/Dash, Simple controls. Gestures are generic touch input conventions (tap, drag, hold, swipe, pinch); no art, audio or text came from another game.
 - This is a prototype, not legal advice.
 
 Plain HTML/CSS/JS. No build step, no libraries, no CDN, no accounts, $0.
@@ -96,10 +140,11 @@ Install-as-app and the service worker need HTTPS or localhost.
 - Touch: drag anywhere in the arena (floating joystick). Tap the BALE WALL button for the special (blocks enemies and beams).
 - Keyboard: WASD or arrows, Space or E special, Esc or P pause.
 - The hay-gun auto-aims. On the boss finisher, tap HAYMAKER.
+- Raids and base (v0.7): see the gesture tables under What is new in v0.7.0.
 
 ## Debug and testing
 Home screen gear icon: timer speed (Real / x60 / Instant), reward x5, +coins/+gems/+salvage, unlock all missions, reset save, playtest data viewer (copy/download JSON).
-URL flags: ?bot=1 (auto-pilot bot), ?fast=N (battle speed), ?tod=day|gold|night (lighting). Console: window.__bb.report().
+URL flags: ?bot=1 (auto-pilot bot), ?fast=N (battle speed), ?tod=day|gold|night (lighting). Console: window.__bb.report(). v0.7 test hooks: window.__cc (X, V, cc(), raid()), BB.TCH.perfNow(), BB.TCH.tiltFake(x,y), BB.MINI.state(), window.__ccFast (sim speed multiplier).
 
 ## Playtest analytics
 Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 events; save is bb_save_v1). Settings > Playtest data shows: sessions, average session length, days played, D1/D7 retention (measured from first-day to next-day returns on the same device), mission starts/wins/win rate per mission, upgrade moments. Nothing is sent anywhere. To collect from friends, ask them to tap "copy JSON" and send it to you.
@@ -111,7 +156,7 @@ Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 ev
 Google Play needs a one-time US$25 developer account. Check AI-art ownership (see LEGAL-NOTES) and store policies first.
 
 ## Files
-index.html, manifest.webmanifest, sw.js (cache bb-proto-v8; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
+index.html, manifest.webmanifest, sw.js (cache bb-proto-v9; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
 
 ## Not built yet
 Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.

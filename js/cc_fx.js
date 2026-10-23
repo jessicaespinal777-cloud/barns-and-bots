@@ -32,7 +32,7 @@
     ovFlash.a = Math.max(0, ovFlash.a - rdt * 2.4);
     return sc;
   };
-  FX.camReset = function () { cam.z = cam.tz = 1; cam.zh = 0; cam.shake = 0; cam.hs = 0; cam.slowT = 0; cam.slowV = 1; ovFlash.a = 0; };
+  FX.camReset = function () { if (G && V.camReset) V.camReset(false); cam.z = cam.tz = 1; cam.zh = 0; cam.shake = 0; cam.hs = 0; cam.slowT = 0; cam.slowV = 1; ovFlash.a = 0; };
 
   // ---- pools ----
   var PCAP = 380, P = [], live = 0, pfree = 0, i0;
@@ -421,6 +421,8 @@
   }
   function ambientUpdate(dt) {
     if (!amb || amb.H !== G.Hl) initAmbient(); var i;
+    amb.an.forEach(function (a) { if (a.hp > 0) { a.hp -= dt; a.wait = Math.max(a.wait, 0.4); a.moving = 0; } if (a.sayT > 0) a.sayT -= dt; if (a.pet > 0) { a.pet -= dt; a.wait = Math.max(a.wait, 0.3); a.moving = 0; } });
+    amb.wk.forEach(function (w) { if (w.hp > 0) w.hp -= dt; if (w.sayT > 0) w.sayT -= dt; });
     amb.an.forEach(function (a) { if (a.wait > 0) { a.wait -= dt; a.moving = 0; return; } var dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy); if (d < 2) { pickSpot(a); return; } var sp0 = a.art === "chicken" ? 16 : 9; a.x += dx / d * sp0 * dt; a.y += dy / d * sp0 * dt; a.face = dx < 0 ? -1 : 1; a.moving = 1; a.ph += dt * (a.art === "chicken" ? 16 : 9); });
     amb.cl.forEach(function (c) { c.x += c.v * dt; if (c.x > 380) { c.x = -c.w - 10; c.y = R(10, Math.max(30, G.Hl - 80)); } });
     if (V.mode === "base" && V.base) {
@@ -429,14 +431,28 @@
       amb.wk.forEach(function (w, k) { if (!tk || !list.length) return; if (w.wait > 0) { w.wait -= dt; if (w.wait <= 0 || w.building) { } w.moving = 0; if (w.wait > 0) { if (w.hammer && Math.random() < dt * 3) sp(w.x + 3 * w.f, w.y - 6, {vx: R(-30, 30), vy: R(-50, -20), g: 120, l: 0.3, r: 1.2, c: "#ffd35a", ty: 5}); return; } } var dx = w.tx - w.x, dy = w.ty - w.y, d = Math.hypot(dx, dy); if (!w.tx || d < 2) { var b = list[(Math.random() * list.length) | 0], dd = C.B[b.t]; w.tx = G.gx + (b.x + dd.w * (0.3 + Math.random() * 0.4)) * T; w.ty = G.gy + (b.y + dd.h) * T + 3; w.wait = R(1, 3); w.hammer = !!b.up || Math.random() < 0.4; if (!w.x) { w.x = G.gx + (tk.x + 1) * T; w.y = G.gy + (tk.y + 2) * T + 3; } return; } w.x += dx / d * 18 * dt; w.y += dy / d * 18 * dt; w.f = dx < 0 ? -1 : 1; w.ph += dt * 14; w.moving = 1; });
     }
   }
+  // ---- v0.7 critters you can touch ----
+  FX.amb = function () { return amb; };
+  FX.critterAt = function (lx, ly) {
+    if (!amb) return null; var best = null, bd = 1e9, i, d;
+    for (i = 0; i < amb.an.length; i++) { var a = amb.an[i]; d = Math.hypot(lx - a.x, (ly - (a.y - a.sz * 0.4)) * 1.1); if (d < Math.max(11, a.sz * 0.55) && d < bd) { bd = d; best = {t: "an", i: i, o: a}; } }
+    for (i = 0; i < amb.wk.length; i++) { var w = amb.wk[i]; if (!w.x) continue; d = Math.hypot(lx - w.x, ly - (w.y - 5)); if (d < 11 && d < bd) { bd = d; best = {t: "wk", i: i, o: w}; } }
+    return best;
+  };
+  var SAY = {cow: ["MOO!", "moo", "moo"], sheep: ["BAA!", "baa", "baa"], pig: ["OINK!", "oink", "oink"], chicken: ["CLUCK!", "cluck", "cluck"]};
+  FX.critterReact = function (h, kind) {
+    var o = h.o, ln; if (h.t === "an") { var sy = SAY[o.art] || SAY.cow; o.hp = 0.5; o.sayT = 1.0; o.say = kind === "pet" ? "<3" : kind === "feed" ? "YUM!" : sy[0]; sfx(kind === "pet" ? "pet" : sy[1]); o.face = Math.random() < 0.5 ? 1 : -1; ln = o.x; }
+    else { o.hp = 0.5; o.sayT = 1.0; var say = ["BEEP!", "BZZT!", "HONK!", "WHIRR!"]; o.say = say[(Math.random() * 4) | 0]; sfx(o.say === "HONK!" ? "honk" : "beep"); }
+    burst(o.x, o.y - 8, kind === "pet" ? 6 : 8, {s0: 20, s1: 60, g: 90, l0: 0.3, l1: 0.6, r0: 1, r1: 2, cols: kind === "pet" ? ["#ff7aa8", "#ffc1d6"] : ["#fff", "#ffd35a"], ty: 5});
+  };
   FX.drawBelow = function () {
     if (!amb) return; var cx = G.cx; cx.fillStyle = "rgba(10,30,20,.10)"; amb.cl.forEach(function (c) { cx.beginPath(); cx.ellipse(c.x + c.w * 0.5 + 14, c.y + c.w * 0.5 + 22, c.w * 0.4, c.w * 0.14, 0, 0, TAU); cx.fill(); });
   };
   FX.drawClouds = function () { if (!amb || V.mode !== "base") return; amb.cl.forEach(function (c) { G.spr(c.art, c.x + c.w / 2, c.y + c.w * 0.5, c.w, c.w * 0.7, FX.tod() === "night" ? 0.25 : 0.62); }); };
   FX.drawBaseLife = function () {
     if (!amb || V.mode !== "base") return; var cx = G.cx, items = [];
-    amb.an.forEach(function (a) { items.push([a.y, function () { var bob = a.moving ? Math.abs(Math.sin(a.ph)) * 1.8 : 0, tl = a.moving ? Math.sin(a.ph) * 0.07 : 0, graze = !a.moving ? Math.max(0, Math.sin(V.t * 1.4 + a.x)) * 0.08 : 0; cx.fillStyle = "rgba(0,0,0,.2)"; cx.beginPath(); cx.ellipse(a.x, a.y, a.sz * 0.36, a.sz * 0.1, 0, 0, TAU); cx.fill(); cx.save(); cx.translate(a.x, a.y - bob); cx.rotate(tl + graze * a.face); G.spr(a.art, 0, 0, a.sz, a.sz * 1.1, 1, a.face < 0); cx.restore(); }]); });
-    amb.wk.forEach(function (w, k) { if (!w.x) return; items.push([w.y, function () { var bob = w.moving ? Math.abs(Math.sin(w.ph)) * 1.6 : 0; cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(w.x, w.y, 4.5, 1.6, 0, 0, TAU); cx.fill(); cx.save(); cx.translate(w.x, w.y - bob); cx.scale(w.f, 1); cx.fillStyle = "#3a4054"; rr2(cx, -3.5, -9, 7, 7.5, 2.5); cx.fillStyle = w.col; rr2(cx, -3, -8.5, 6, 3.4, 1.8); cx.fillStyle = "#fff"; cx.fillRect(0.4, -7.6, 1.6, 1.4); cx.fillStyle = "#262a36"; var lg = w.moving ? Math.sin(w.ph) * 1.6 : 0; cx.fillRect(-2.4 + lg, -1.6, 1.6, 1.6); cx.fillRect(0.8 - lg, -1.6, 1.6, 1.6); var sw = w.hammer && !w.moving ? Math.sin(V.t * 14 + k) : 0; cx.strokeStyle = "#a07040"; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(3, -5); cx.lineTo(3 + 3.5 * Math.cos(-0.9 + sw), -5 + 3.5 * Math.sin(-0.9 + sw)); cx.stroke(); cx.fillStyle = "#c8ccd8"; cx.fillRect(3 + 3.5 * Math.cos(-0.9 + sw) - 1.5, -5 + 3.5 * Math.sin(-0.9 + sw) - 1, 3, 2); cx.restore(); }]); });
+    amb.an.forEach(function (a) { items.push([a.y, function () { var bob = a.moving ? Math.abs(Math.sin(a.ph)) * 1.8 : 0, tl = a.moving ? Math.sin(a.ph) * 0.07 : 0, graze = !a.moving ? Math.max(0, Math.sin(V.t * 1.4 + a.x)) * 0.08 : 0; cx.fillStyle = "rgba(0,0,0,.2)"; cx.beginPath(); cx.ellipse(a.x, a.y, a.sz * 0.36, a.sz * 0.1, 0, 0, TAU); cx.fill(); cx.save(); cx.translate(a.x, a.y - bob - (a.hp > 0 ? Math.sin((1 - a.hp / 0.5) * 3.14159) * 11 : 0)); cx.rotate(tl + graze * a.face); G.spr(a.art, 0, 0, a.sz, a.sz * 1.1, 1, a.face < 0); cx.restore(); }]); });
+    amb.wk.forEach(function (w, k) { if (!w.x) return; items.push([w.y, function () { var bob = w.moving ? Math.abs(Math.sin(w.ph)) * 1.6 : 0; cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(w.x, w.y, 4.5, 1.6, 0, 0, TAU); cx.fill(); cx.save(); cx.translate(w.x, w.y - bob - (w.hp > 0 ? Math.sin((1 - w.hp / 0.5) * 3.14159) * 10 : 0)); cx.scale(w.f, 1); cx.fillStyle = "#3a4054"; rr2(cx, -3.5, -9, 7, 7.5, 2.5); cx.fillStyle = w.col; rr2(cx, -3, -8.5, 6, 3.4, 1.8); cx.fillStyle = "#fff"; cx.fillRect(0.4, -7.6, 1.6, 1.4); cx.fillStyle = "#262a36"; var lg = w.moving ? Math.sin(w.ph) * 1.6 : 0; cx.fillRect(-2.4 + lg, -1.6, 1.6, 1.6); cx.fillRect(0.8 - lg, -1.6, 1.6, 1.6); var sw = w.hammer && !w.moving ? Math.sin(V.t * 14 + k) : 0; cx.strokeStyle = "#a07040"; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(3, -5); cx.lineTo(3 + 3.5 * Math.cos(-0.9 + sw), -5 + 3.5 * Math.sin(-0.9 + sw)); cx.stroke(); cx.fillStyle = "#c8ccd8"; cx.fillRect(3 + 3.5 * Math.cos(-0.9 + sw) - 1.5, -5 + 3.5 * Math.sin(-0.9 + sw) - 1, 3, 2); cx.restore(); }]); });
     items.sort(function (a, b) { return a[0] - b[0]; }); items.forEach(function (it) { it[1](); });
     // windmill (decor, top-right corner)
     var wx = 332, wy = Math.max(30, G.gy - 2); cx.fillStyle = "rgba(0,0,0,.18)"; cx.beginPath(); cx.ellipse(wx, wy + 1, 14, 3.5, 0, 0, TAU); cx.fill(); cx.fillStyle = "#c9a36a"; cx.beginPath(); cx.moveTo(wx - 8, wy); cx.lineTo(wx - 4.5, wy - 28); cx.lineTo(wx + 4.5, wy - 28); cx.lineTo(wx + 8, wy); cx.closePath(); cx.fill(); cx.fillStyle = "#a8794a"; cx.fillRect(wx - 2.5, wy - 8, 5, 8); cx.fillStyle = "#8a4b32"; cx.beginPath(); cx.moveTo(wx - 6, wy - 28); cx.lineTo(wx, wy - 35); cx.lineTo(wx + 6, wy - 28); cx.closePath(); cx.fill();
@@ -465,7 +481,7 @@
     o = o || {}; if (banners.length > 2) banners.shift(); if (banners.length && banners[banners.length - 1].txt === txt && banners[banners.length - 1].t < 0.5) return;
     banners.push({txt: txt, c: col || "#fff", sub: sub, t: 0, d: o.big ? 2.0 : 1.5, big: !!o.big});
   };
-  function toScreen(x, y) { var r = G && G.rect && G.rect(); if (!r) return [x, y]; return [r.left + x / 360 * r.width, r.top + y / G.Hl * r.height]; }
+  function toScreen(x, y) { var r = G && G.rect && G.rect(); if (!r) return [x, y]; if (G.toClient) return G.toClient(x, y); return [r.left + x / 360 * r.width, r.top + y / G.Hl * r.height]; }
   FX.toScreen = toScreen;
   function targetEl(kind) {
     var ids = V.mode === "raid" ? null : (kind === "c" ? "bv-coins" : "bv-salv"), el = null;

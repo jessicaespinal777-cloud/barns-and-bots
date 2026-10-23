@@ -6,7 +6,7 @@
   function fresh() {
     return {v: 1, created: Date.now(), coins: BB.START.coins, gems: BB.START.gems, salv: BB.START.salv, bp: BB.START.bp,
       lvl: 1, upg: null, missions: {}, farmLast: Date.now(), farmStored: 0,
-      set: {mute: false, timerMul: 1, rewardMul: 1, calm: false, music: true, haptics: true, tod: ""}, seen: {}};
+      set: {mute: false, timerMul: 1, rewardMul: 1, calm: false, music: true, haptics: true, tod: "", simple: false, tilt: true}, seen: {}};
   }
   var S;
   function load() {

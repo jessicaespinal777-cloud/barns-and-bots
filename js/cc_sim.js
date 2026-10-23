@@ -173,7 +173,7 @@
       if (b.lcL > 0) { sim.loot.c += b.lcL * 0; }
     }
     function dmgU(u, amt, srcTeam) {
-      if (u.dead) return; if (u.shld > 0) amt *= 0.35; u.hp -= amt; u.hit = 0.1;
+      if (u.dead) return; if (u.inv > 0 && srcTeam === "d") return; if (u.shld > 0) amt *= 0.35; if (u.chan > 0) amt *= 0.6; u.hp -= amt; u.hit = 0.1;
       if (u.team === "a") { u.dacc = (u.dacc || 0) + amt; if (sim.t - (u.dlast || -9) >= 0.6 && u.dacc >= 1) { sim.ev.push({k: "dmg", x: u.x, y: u.y, a: Math.round(u.dacc), u: 1}); u.dacc = 0; u.dlast = sim.t; } }
       if (u.hp <= 0) { u.dead = true; sim.ev.push({k: "udead", x: u.x, y: u.y, a: u.art, team: u.team}); if (u.team === "d") { comboHit(u.x, u.y, 0); sim.charge = Math.min(100, sim.charge + 1.2); } }
     }
@@ -202,11 +202,112 @@
       sim.ev.push({k: "pugot", id: id, pk: k, x: p.x, y: p.y, lucky: p.lucky, pts: pts}); return true;
     };
     sim.psurge = function () {
-      if (sim.done || sim.charge < 99.9) return false; sim.charge = 0; sim.ps = 7; sim.started = true; var pts = [];
+      if (sim.done || sim.charge < 99.9) return false; sim.charge = 0; sim.ps = 7; sim.psT = sim.t; sim.started = true; var pts = [];
       sim.tr.forEach(function (u) { if (u.dead || u.decoy) return; u.bst = Math.max(u.bst, 7); u.shld = Math.max(u.shld || 0, 3); u.pa = 7; if (pts.length < 14) pts.push([u.x, u.y]); });
       sim.bld.forEach(function (b) { if (b.dead || b.kind === "trap") return; for (var q = 0; q < pts.length; q++) if (Math.hypot(b.cx - pts[q][0], b.cy - pts[q][1]) < 3.2 + b.w / 2) { if (b.kind === "def") { b.frz = 2.5; b.half = 4; } if (b.kind !== "wall") dmgB(b, Math.max(70, b.mx * 0.14), sim.tr[0] || null); return; } });
       sim.ev.push({k: "psurge", pts: pts}); return true;
     };
+    // ======== v0.7 hands-on actions (all deterministic; recorded as script entries; applied between ticks) ========
+    sim.tele = []; sim.teleN = 0; sim.rallyCd = 0; sim.marchCd = 0; sim.skB = 0; sim.psT = 0;
+    sim.sk = {dodge: 0, pdodge: 0, perf: 0, weak: 0, beat: 0, beatGood: 0, dash: 0, rally: 0, march: 0, focus: 0, chan: 0};
+    function heroU() { var h = null; for (var i = 0; i < sim.tr.length; i++) if (sim.tr[i].hero && !sim.tr[i].dead) h = sim.tr[i]; return h; }
+    sim.heroU = heroU;
+    // small, capped loot reward for hands-on play (max 6% of the base's loot in total)
+    function skillBonus(kind, x, y, w) {
+      var add = 0.004 * (w || 1); if (sim.skB + add > 0.06) add = Math.max(0, 0.06 - sim.skB); sim.sk[kind] = (sim.sk[kind] || 0) + 1; if (add <= 0) return;
+      sim.skB += add; var bc = Math.round(sim.totLC * add), bs = Math.round(sim.totLS * add); sim.loot.c += bc; sim.loot.s += bs; sim.bonus.c += bc; sim.bonus.s += bs;
+      sim.ev.push({k: "skill", n: kind, x: x, y: y, bc: bc, bs: bs});
+    }
+    sim.skillBonus = skillBonus;
+    sim.perfBonus = function (u) { if (!u) return; u.shld = Math.max(u.shld || 0, 3); u.bst = Math.max(u.bst, 3); u.pa = 3; sim.charge = Math.min(100, sim.charge + 2); skillBonus("perf", u.x, u.y, 0.5); sim.ev.push({k: "perf", x: u.x, y: u.y}); };
+    var NEWK = {hmove: 1, hfocus: 1, hdash: 1, hch: 1, hauto: 1, rally: 1, march: 1, weak: 1, beat: 1};
+    sim.NEWK = NEWK;
+    sim.act = function (a) {
+      if (sim.done) return false; var h = heroU(), k = a.k, i, u;
+      if (k === "hmove") { if (!h) return false; var mx = Math.max(0.4, Math.min(N - 0.4, a.x)), my = Math.max(0.4, Math.min(N - 0.4, a.y)); h.steer = [mx, my]; h.stay = false; h.stuck = 0; if (h.chan > 0) { h.chan = 0; h.chcd = 0.6; } sim.started = true; sim.ev.push({k: "hgo", x: mx, y: my}); return true; }
+      if (k === "hfocus") { var fb = sim.bld[a.b]; if (!h || !fb || fb.dead || fb.kind === "trap") return false; h.lock = fb; h.tgt = fb; h.steer = null; h.stay = false; h.path = null; h.blk = null; if (h.chan > 0) { h.chan = 0; } sim.sk.focus++; sim.ev.push({k: "focus", b: fb.i, x: fb.cx, y: fb.cy}); return true; }
+      if (k === "hdash") {
+        if (!h || h.dcd > 0 || h.stun > 0 || h.dash) return false; var dx = a.x - h.x, dy = a.y - h.y, dd = Math.hypot(dx, dy); if (dd < 0.05) { dx = h.face || 1; dy = 0; dd = Math.abs(dx); }
+        h.dash = {dx: dx / dd, dy: dy / dd, t: 0.2}; h.inv = 0.34; h.dcd = 1.5; h.chan = 0; h.path = null; h.blk = null; sim.sk.dash++; sim.started = true; sim.ev.push({k: "dash", x: h.x, y: h.y, dx: dx / dd, dy: dy / dd}); return true;
+      }
+      if (k === "hch") {
+        if (!h) return false; if (!a.on) { if (h.chan > 0) { h.chan = 0; h.chcd = 1; sim.ev.push({k: "chan", on: 0}); } return true; }
+        if (h.chcd > 0 || h.dash || h.stun > 0) return false; h.chan = 3; h.steer = null; h.stay = true; sim.sk.chan++; sim.started = true; sim.ev.push({k: "chan", on: 1}); return true;
+      }
+      if (k === "hauto") { if (!h) return false; h.auto = a.on ? 1 : 0; return true; }
+      if (k === "rally") {
+        if (sim.rallyCd > 0) return false; var n = 0; sim.rallyCd = 5; sim.started = true;
+        for (i = 0; i < sim.tr.length; i++) { u = sim.tr[i]; if (u.dead || u.hero || u.heal || u.decoy) continue; var ang = n * 2.399, rr = 0.35 + 0.22 * Math.sqrt(n); u.rl = {x: a.x + Math.cos(ang) * rr, y: a.y + Math.sin(ang) * rr, t: 6}; u.mp = null; u.tgt = null; u.path = null; u.blk = null; n++; }
+        if (!n) { sim.rallyCd = 0; return false; } sim.sk.rally++; sim.ev.push({k: "rally", x: a.x, y: a.y, n: n}); return true;
+      }
+      if (k === "march") {
+        var p = a.p; if (!p || !p.length || sim.marchCd > 0) return false; var sq = [];
+        for (i = 0; i < sim.tr.length; i++) { u = sim.tr[i]; if (u.dead || u.hero || u.heal || u.decoy) continue; if (Math.hypot(u.x - p[0][0], u.y - p[0][1]) <= 2.6) sq.push(u); }
+        if (!sq.length) return false; sim.marchCd = 2; sim.started = true;
+        sq.forEach(function (s, n2) { var ang2 = n2 * 2.399, r2 = 0.12 * Math.sqrt(n2); s.mp = p.map(function (q) { return [q[0] + Math.cos(ang2) * r2, q[1] + Math.sin(ang2) * r2]; }); s.mt = 12; s.rl = null; s.tgt = null; s.path = null; s.blk = null; });
+        sim.sk.march++; sim.ev.push({k: "march", p: p, n: sq.length}); return true;
+      }
+      if (k === "weak") {
+        var wb = sim.bld[a.b]; if (!wb || wb.dead || wb.kind !== "def" || !wb.wkOpen || wb.wkUsed === wb.wkWin) return false;
+        wb.wkUsed = wb.wkWin; var wd = Math.max(80, wb.mx * 0.15 + (h ? h.dps * 1.5 : 0)); sim.crits++; wb.frz = Math.max(wb.frz || 0, 1.3); wb.wkOpen = false; wb.ramp = 0;
+        dmgB(wb, wd, h || sim.tr[0] || null); sim.ev.push({k: "dmg", x: wb.cx, y: wb.cy, a: Math.round(wd), crit: 1, w: wb.w}); sim.ev.push({k: "weak", b: wb.i, x: wb.cx, y: wb.cy});
+        sim.charge = Math.min(100, sim.charge + 3); skillBonus("weak", wb.cx, wb.cy, 1); sim.started = true; return true;
+      }
+      if (k === "beat") {
+        if (sim.ps <= 0) return false; var ph = (sim.t - sim.psT) % 0.5, off = Math.min(ph, 0.5 - ph), good = off <= 0.15; sim.sk.beat++; var pts = [];
+        if (good) {
+          sim.sk.beatGood++; sim.ps = Math.min(sim.ps + 0.25, 10);
+          sim.tr.forEach(function (t) { if (t.dead || t.decoy) return; t.bst = Math.max(t.bst, 1.5); if (pts.length < 10) pts.push([t.x, t.y]); });
+          for (i = 0; i < sim.bld.length; i++) { var bb2 = sim.bld[i]; if (bb2.dead || bb2.kind === "trap" || bb2.kind === "wall") continue; for (var q = 0; q < pts.length; q++) if (Math.hypot(bb2.cx - pts[q][0], bb2.cy - pts[q][1]) < 2.6 + bb2.w / 2) { dmgB(bb2, Math.max(36, bb2.mx * 0.05) * (1 + Math.min(4, sim.sk.beatGood) * 0.15), sim.tr[0] || null); break; } }
+          if (sim.sk.beatGood % 4 === 0) skillBonus("beatB", 0, 0, 0.5);
+        }
+        sim.ev.push({k: "beat", good: good ? 1 : 0, n: sim.sk.beatGood, pts: pts}); return true;
+      }
+      return false;
+    };
+    function hTarget(u) {
+      if (u.lock && !u.lock.dead && boxDist(u.x, u.y, u.lock) <= u.rng + 0.05) return u.lock; var best = null, bd = 1e9, wl = null, wd = 1e9;
+      for (var i = 0; i < sim.bld.length; i++) { var b = sim.bld[i]; if (b.dead || b.kind === "trap") continue; var d = boxDist(u.x, u.y, b); if (d > u.rng + 0.05) continue; if (b.kind === "wall") { if (d < wd) { wd = d; wl = b; } } else if (d < bd) { bd = d; best = b; } }
+      return best || wl;
+    }
+    function hitFx(u, tb) { u.atk = 0.2; u.face = tb.cx < u.x ? -1 : 1; u.aim = Math.atan2(tb.cy - u.y, tb.cx - u.x); if (u.rng > 2 && (sim.t * 10 | 0) % 6 === (u.id % 6)) sim.ev.push({k: u.lob ? "lob" : "bolt", hid: u.hid, x1: u.x, y1: u.y, x2: tb.cx, y2: tb.cy}); }
+    function hFight(u, dt, dps, m) {
+      var tb = hTarget(u); if (tb) { dmgB(tb, dps * dt * m, u); hitFx(u, tb); return tb; }
+      var en = null, ed = 1e9; for (var j = 0; j < sim.df.length; j++) { var e = sim.df[j]; if (e.dead) continue; var dd = Math.hypot(e.x - u.x, e.y - u.y); if (dd < ed && dd <= u.rng + 0.3) { ed = dd; en = e; } }
+      if (en) { dmgU(en, dps * dt * m, "a"); u.atk = 0.2; u.face = en.x < u.x ? -1 : 1; return en; } return null;
+    }
+    function autoDodge(u) {
+      if (u.dcd > 0 || u.dash) return; for (var i = 0; i < sim.tele.length; i++) { var p = sim.tele[i]; var d = Math.hypot(u.x - p.x, u.y - p.y); if (d < p.r + 0.15 && p.t > 0.18) { var dx = u.x - p.x, dy = u.y - p.y; if (d < 0.05) { dx = 1; dy = 0; d = 1; } sim.act({k: "hdash", x: u.x + dx / d * 3, y: u.y + dy / d * 3}); return; } }
+    }
+    // the hero is steered by the player: move, hold position, channel; returns true when it handled this tick
+    function heroCtl(u, dt, spd, dps) {
+      if (u.auto) autoDodge(u);
+      if (u.dash) {
+        var dd = u.dash, st = 10.5 * dt, nx = u.x + dd.dx * st, ny = u.y + dd.dy * st;
+        if (!blocked(nx, ny) && nx > 0.2 && ny > 0.2 && nx < N - 0.2 && ny < N - 0.2) { u.x = nx; u.y = ny; } else if (!blocked(nx, u.y) && nx > 0.2 && nx < N - 0.2) u.x = nx; else if (!blocked(u.x, ny) && ny > 0.2 && ny < N - 0.2) u.y = ny;
+        u.mv = 0.2; u.face = dd.dx < 0 ? -1 : 1; dd.t -= dt; if (dd.t <= 0) { u.dash = null; if (!u.lock || u.lock.dead) u.stay = !u.steer ? true : u.stay; }
+        return true;
+      }
+      if (u.chan > 0) {
+        u.chan -= dt; hFight(u, dt, dps, 1.8); if (u.chan <= 0) { u.chan = 0; u.chcd = 2; sim.ev.push({k: "chan", on: 0}); } return true;
+      }
+      if (u.steer) {
+        var sx = u.steer[0] - u.x, sy = u.steer[1] - u.y, sd = Math.hypot(sx, sy), px = u.x, py = u.y;
+        if (sd < 0.18) { u.steer = null; u.stay = true; u.slide = 0; u.idleT = 0; } else { u.slide = 1; moveTo(u, u.steer[0], u.steer[1], spd * 1.05 * dt); if (Math.hypot(u.x - px, u.y - py) < spd * dt * 0.2) { u.stuck = (u.stuck || 0) + dt; if (u.stuck > 0.5) { u.steer = null; u.stay = true; u.slide = 0; u.idleT = 0; } } else u.stuck = 0; }
+        hFight(u, dt, dps, 0.55); return true;
+      }
+      if (u.stay) { if (u.lock && !u.lock.dead && boxDist(u.x, u.y, u.lock) > u.rng + 0.05) { u.stay = false; u.tgt = u.lock; u.path = null; return false; } if (!hFight(u, dt, dps, 1)) { u.idleT = (u.idleT || 0) + dt; if (u.idleT > 1.4) { u.stay = false; u.lock = null; u.tgt = null; u.path = null; u.idleT = 0; return false; } } else u.idleT = 0; return true; }
+      return false;
+    }
+    function troopRally(u, dt, spd) {
+      if (u.rl) { u.rl.t -= dt; var rd = Math.hypot(u.rl.x - u.x, u.rl.y - u.y); if (u.rl.t <= 0 || rd < 0.3) { u.rl = null; u.tgt = null; u.path = null; u.blk = null; u.slide = 0; return false; } if (!u.fly) u.slide = 1; moveTo(u, u.rl.x, u.rl.y, spd * dt); return true; }
+      if (u.mp && u.mp.length) {
+        u.mt -= dt; var w = u.mp[0]; if (u.mt <= 0) { u.mp = null; u.slide = 0; u.tgt = null; u.path = null; return false; }
+        if (!u.fly) u.slide = 1; var px = u.x, py = u.y, rem = moveTo(u, w[0], w[1], spd * dt); if (rem < 0.25) u.mp.shift(); else if (Math.hypot(u.x - px, u.y - py) < spd * dt * 0.15) u.mt -= dt * 3;
+        if (!u.mp.length) { u.mp = null; u.slide = 0; u.tgt = null; u.path = null; u.blk = null; return false; } return true;
+      }
+      u.mp = null; return false;
+    }
     function release(b) {
       b.released = true; var list = [];
       if (sim.crewList) { C.UORDER.forEach(function (k) { for (var i = 0; i < (sim.crewList[k] || 0); i++) list.push(k); }); for (var gi = 0; gi < (sim.crewList.guard || 0); gi++) list.push("guard"); }
@@ -227,13 +328,22 @@
       else if (pref === "breaker") { var out = flo(); t = nearest(function (x) { return !S.exposedB(x, out); }); }
       return t || nearest(null);
     }
+    sim.v2 = !!(sim.script && sim.script.length && sim.script[0].k === "rv");
+    function runScript() {
+      while (sim.scriptI < sim.script.length && sim.script[sim.scriptI].t <= sim.t + 1e-6) {
+        var a = sim.script[sim.scriptI++]; if (a.k === "rv") continue;
+        if (a.s) sim.spell(a.k, a.x, a.y); else if (a.k === "ability") sim.ability(); else if (a.k === "pu") sim.collectPU(a.id); else if (a.k === "ps") sim.psurge(); else if (sim.NEWK[a.k]) sim.act(a); else { var du = sim.deploy(a.k, a.x, a.y); if (du && a.perf) sim.perfBonus(du); }
+      }
+      if (sim.scriptI >= sim.script.length) sim.allDeployed = true;
+    }
     function regTick(dt) {
       var pathBudget = 10, i, j, u, b, q;
+      if (sim.v2 && sim.script) runScript();
       sim.t += dt;
       if (sim.ps > 0) sim.ps -= dt; if (sim.cmb.n > 0 && sim.t - sim.cmb.last > 4) { sim.cmb.n = 0; sim.cmb.tier = 0; sim.ev.push({k: "combo", n: 0, tier: 0}); }
       if (sim.pus.length) { var keep = []; for (i = 0; i < sim.pus.length; i++) { if (sim.t - sim.pus[i].t < sim.pus[i].ttl) keep.push(sim.pus[i]); else sim.ev.push({k: "puexp", id: sim.pus[i].id, x: sim.pus[i].x, y: sim.pus[i].y}); } sim.pus = keep; }
       for (i = 0; i < sim.tr.length; i++) { var tu = sim.tr[i]; if (tu.critCd > 0) tu.critCd -= dt; if (tu.shld > 0) tu.shld -= dt; if (tu.pa > 0) tu.pa -= dt; }
-      if (sim.script) { while (sim.scriptI < sim.script.length && sim.script[sim.scriptI].t <= sim.t) { var a = sim.script[sim.scriptI++]; if (a.s) sim.spell(a.k, a.x, a.y); else if (a.k === "ability") sim.ability(); else if (a.k === "pu") sim.collectPU(a.id); else if (a.k === "ps") sim.psurge(); else sim.deploy(a.k, a.x, a.y); } if (sim.scriptI >= sim.script.length) sim.allDeployed = true; }
+      if (sim.script && !sim.v2) { while (sim.scriptI < sim.script.length && sim.script[sim.scriptI].t <= sim.t) { var a = sim.script[sim.scriptI++]; if (a.s) sim.spell(a.k, a.x, a.y); else if (a.k === "ability") sim.ability(); else if (a.k === "pu") sim.collectPU(a.id); else if (a.k === "ps") sim.psurge(); else sim.deploy(a.k, a.x, a.y); } if (sim.scriptI >= sim.script.length) sim.allDeployed = true; }
       // zones
       for (i = 0; i < sim.zones.length; i++) { var z = sim.zones[i]; z.t -= dt; if (z.k === "clamp" || z.k === "stitch") continue; sim.tr.forEach(function (t) { if (t.dead || t.decoy || Math.hypot(t.x - z.x, t.y - z.y) > z.r) return; if (z.k === "rain") t.hp = Math.min(t.mx, t.hp + t.mx * 0.14 * dt); else if (z.k === "veil") t.veil = 0.25; else t.bst = 0.12; }); }
       sim.zones = sim.zones.filter(function (z) { return z.t > 0; });
@@ -246,6 +356,8 @@
             if (!t.fly && d > 0.01) { for (var st = 0; st < 6; st++) { var nx = t.x + dx / d * 0.25, ny = t.y + dy / d * 0.25; if (blocked(nx, ny)) break; t.x = nx; t.y = ny; } t.path = null; t.blk = null; } }); } }
       // crew triggers
       for (i = 0; i < sim.bld.length; i++) { b = sim.bld[i]; if (b.kind === "crew" && !b.dead && !b.released) { for (j = 0; j < sim.tr.length; j++) { u = sim.tr[j]; if (!u.dead && Math.hypot(u.x - b.cx, u.y - b.cy) < 5.5) { release(b); break; } } } }
+      if (sim.rallyCd > 0) sim.rallyCd -= dt; if (sim.marchCd > 0) sim.marchCd -= dt;
+      if (sim.tele.length) { var keepT = []; for (i = 0; i < sim.tele.length; i++) { var tp = sim.tele[i]; tp.t -= dt; if (tp.t > 0) keepT.push(tp); else resolveTele(tp); } sim.tele = keepT; }
       // defences and traps
       for (i = 0; i < sim.bld.length; i++) {
         b = sim.bld[i]; if (b.dead) continue; if (b.hit > 0) b.hit -= dt;
@@ -257,6 +369,7 @@
             if (b.tk === "mine" ? (u.fly && td < 1.6) : (!u.fly && td < 1.1)) { b.sprung = true; if (b.tk === "cache") { b.fuseT = b.fuse; sim.ev.push({k: "boom", x: tx0, y: ty0, r: 1, c: "fuse"}); } else fireTrap(b); break; } }
           continue;
         }
+        if (b.kind === "def") { var wph = sim.t + b.i * 1.37; b.wkWin = Math.floor(wph / 6.5); b.wkOpen = (wph % 6.5) < 1.5 && b.wkUsed !== b.wkWin && b.frz <= 0; }
         if (b.kind !== "def" || b.sup) continue;
         if (b.blind > 0) b.blind -= dt; if (b.frz > 0) { b.frz -= dt; b.ramp = 0; continue; } if (b.half > 0) b.half -= dt;
         b.cool -= dt * (sim.surgeT > 0 ? 1.6 : 1); if (b.cool > 0) continue;
@@ -274,12 +387,23 @@
         } else if (b.spec === "ramp") {
           if (b.rt !== tg) { b.ramp = 0; b.rt = tg; } var mult = 1 + Math.min(3, b.ramp / 2); b.ramp += b.cd; dmgU(tg, shot * mult, "d");
           sim.ev.push({k: "beam", x1: b.cx, y1: b.cy, x2: tg.x, y2: tg.y, m: mult});
+        } else if (tg.hero && !tg.fly && (b.t === "lobber" || b.t === "sniper") && !tg.dash) {
+          var td0 = b.t === "lobber" ? 0.95 : 1.05, lead = Math.min(2.2, Math.hypot(tg.vx || 0, tg.vy || 0) * td0), vl = Math.hypot(tg.vx || 0, tg.vy || 0) || 1;
+          var tx2 = Math.max(0.4, Math.min(N - 0.4, tg.x + (tg.vx || 0) / vl * lead)), ty2 = Math.max(0.4, Math.min(N - 0.4, tg.y + (tg.vy || 0) / vl * lead));
+          var tel = {id: ++sim.teleN, x: tx2, y: ty2, r: b.spl ? Math.max(1.3, b.spl) : 1.0, t: td0, d: td0, dmg: shot, c: b.t, bx: b.cx, by: b.cy, hero: 1}; sim.tele.push(tel);
+          sim.ev.push({k: "tele", id: tel.id, x: tx2, y: ty2, r: tel.r, d: td0, c: b.t, bx: b.cx, by: b.cy});
         } else {
           if (b.spl) sim.tr.forEach(function (t) { if (!t.dead && ((t.fly && b.a) || (!t.fly && b.g)) && Math.hypot(t.x - tg.x, t.y - tg.y) <= b.spl) dmgU(t, shot, "d"); }); else dmgU(tg, shot, "d");
           if (b.spec === "slow") tg.slow = 3;
           if (b.spec === "knock" && !tg.fly) { var kx = tg.x - b.cx, ky = tg.y - b.cy, kd = Math.hypot(kx, ky) || 1; for (var ks = 0; ks < 6; ks++) { var nx3 = tg.x + kx / kd * 0.25, ny3 = tg.y + ky / kd * 0.25; if (blocked(nx3, ny3)) break; tg.x = nx3; tg.y = ny3; } tg.path = null; tg.blk = null; }
           sim.ev.push({k: "shot", t: b.t, x1: b.cx, y1: b.cy, x2: tg.x, y2: tg.y, spl: b.spl || 0});
         }
+      }
+      function resolveTele(p) {
+        var hh = heroU(), hitH = false;
+        sim.tr.forEach(function (t) { if (t.dead || t.decoy || t.fly) return; if (Math.hypot(t.x - p.x, t.y - p.y) > p.r + 0.1) return; if (t.inv > 0) { return; } dmgU(t, p.dmg, "d"); if (t.hero) hitH = true; });
+        sim.ev.push({k: "shot", t: p.c, x1: p.bx, y1: p.by, x2: p.x, y2: p.y, spl: p.c === "lobber" ? p.r : 0, tl: 1});
+        if (hh && !hh.dead && p.hero && !hitH) { var dh = Math.hypot(hh.x - p.x, hh.y - p.y), perfect = hh.inv > 0 && dh <= p.r + 0.9; sim.charge = Math.min(100, sim.charge + (perfect ? 7 : 3)); skillBonus(perfect ? "pdodge" : "dodge", p.x, p.y, perfect ? 1 : 0.5); sim.ev.push({k: "dodge", x: hh.x, y: hh.y, px: p.x, py: p.y, r: p.r, perfect: perfect ? 1 : 0}); }
       }
       function valid(bb, t) { if (t.fly ? !bb.a : !bb.g) return false; if (t.dig > 0) return false; var d = Math.hypot(t.x - bb.cx, t.y - bb.cy); if (t.veil > 0 && d > 1.5) return false; return d <= bb.rng + 0.5 && d >= bb.min; }
       function fireTrap(b) {
@@ -297,6 +421,7 @@
       for (i = 0; i < sim.tr.length; i++) {
         u = sim.tr[i]; if (u.dead) continue; if (u.hit > 0) u.hit -= dt; if (u.ab > 0) u.ab -= dt;
         if (u.decoy) continue;
+        if (u.lx !== undefined) { u.vx = (u.x - u.lx) / dt; u.vy = (u.y - u.ly) / dt; } u.lx = u.x; u.ly = u.y; if (u.inv > 0) u.inv -= dt; if (u.dcd > 0) u.dcd -= dt; if (u.chcd > 0) u.chcd -= dt;
         if (u.veil > 0) u.veil -= dt; if (u.slow > 0) u.slow -= dt; if (u.root > 0) u.root -= dt; if (u.hopCd > 0) u.hopCd -= dt;
         var hk = (u.y | 0) * N + (u.x | 0); if (hk >= 0 && hk < N * N) sim.heat[hk] += dt;
         if (u.stun > 0) { u.stun -= dt; continue; }
@@ -312,6 +437,8 @@
           if (fo && fd > 1.8) { u.slide = 1; moveTo(u, fo.x, fo.y, spd * dt); }
           continue;
         }
+        if (u.hero && heroCtl(u, dt, spd, dps)) continue;
+        if (!u.hero && (u.rl || u.mp) && troopRally(u, dt, spd)) continue;
         // fight back vs crew defenders
         var en = null, ed = 1e9; for (j = 0; j < sim.df.length; j++) { var e = sim.df[j]; if (e.dead || (e.fly && u.rng < 1.5 && !u.fly)) continue; var dd = Math.hypot(e.x - u.x, e.y - u.y); if (dd < ed && dd <= u.rng + 1.3) { ed = dd; en = e; } }
         if (en && u.boom === undefined) { u.face = en.x < u.x ? -1 : 1; u.atk = 0.2; if (ed > u.rng + 0.2) { moveTo(u, en.x, en.y, spd * dt); } else { dmgU(en, dps * dt, "a"); if (u.cone) sim.df.forEach(function (o3) { if (o3 !== en && !o3.dead && Math.hypot(o3.x - en.x, o3.y - en.y) <= 1.3) dmgU(o3, dps * dt * u.cone, "a"); }); } continue; }
@@ -382,7 +509,7 @@
     }
     sim.step = function (dt) { if (sim.done) return; dt = dt || sim.dt; tick(dt); };
     sim.run = function (maxSec) { var n = Math.ceil((maxSec || sim.cap) / sim.dt); for (var i = 0; i < n && !sim.done; i++) tick(sim.dt); return sim.result(); };
-    sim.result = function () { return {win: sim.win, funnel: S.funnel(sim), healed: Math.round(sim.healed), stars: sim.stars, pct: sim.pct, coreDead: sim.coreDead, loot: {c: Math.round(sim.loot.c), s: Math.round(sim.loot.s)}, t: Math.round(sim.t), why: sim.why, bdest: sim.bdest, defDest: sim.defDest, deployed: sim.deployed}; };
+    sim.result = function () { return {win: sim.win, funnel: S.funnel(sim), healed: Math.round(sim.healed), stars: sim.stars, pct: sim.pct, coreDead: sim.coreDead, loot: {c: Math.round(sim.loot.c), s: Math.round(sim.loot.s)}, t: Math.round(sim.t), why: sim.why, bdest: sim.bdest, defDest: sim.defDest, deployed: sim.deployed, sk: sim.sk, skB: +sim.skB.toFixed(4)}; };
     return sim;
   };
   // ---- AI attacker for async defence: returns a deploy script (deterministic from seed) ----

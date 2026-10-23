@@ -19,7 +19,7 @@
     return {v: 2, nid: 20, bld: [b("core", 10, 9), b("barn", 14, 9), b("field", 6, 9), b("tinker", 14, 13), b("camp", 6, 13), b("train", 10, 14), b("blaster", 15, 5)],
       army: {slinger: 5, bruiser: 3}, queue: [], qLast: n, spells: {}, ulv: {slinger: 1, bruiser: 1, roller: 1, drone: 1}, lab: null, heroHp: 1, heroT: n, hero: "bale", hh: {},
       crew: {units: {}, req: null, reqAt: 0, don: {}, log: []}, trophies: 0, shield: 0, log: [], unseen: 0, story: {}, daily: {last: "", streak: 0}, quests: {day: "", prog: {}, claimed: {}},
-      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null};
+      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null, hints: {}, mini: {day: "", best: 0, done: 0, plays: 0}, pets: {day: "", n: 0, t: {}}};
   }
   X.ensure = function () {
     if (!S.cc) S.cc = fresh(); cc = S.cc; var f = fresh(); for (var k in f) if (cc[k] === undefined) cc[k] = f[k];
@@ -66,9 +66,10 @@
     var d = C.B[t]; if (x < C.RING || y < C.RING || x + d.w > N - C.RING || y + d.h > N - C.RING) return false; var g = X.grid(ex);
     for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) if (g[y + j][x + k]) return false; return true;
   }
+  X.fits = fits;
   function findSpot(t) { var d = C.B[t], best = null, bd = 1e9; for (var y = C.RING; y <= N - C.RING - d.h; y++) for (var x = C.RING; x <= N - C.RING - d.w; x++) { if (!fits(t, x, y)) continue; var dd = Math.hypot(x - 10, y - 11); if (dd < bd) { bd = dd; best = [x, y]; } } return best; }
   function give(c, s, g) { S.coins += c || 0; S.salv += s || 0; S.gems += g || 0; }
-  X.give = give;
+  X.give = give; X.giveCapped = function (c, s2) { return addCapped(c || 0, s2 || 0); };
   function addCapped(c, s) { var gc = Math.max(0, Math.min(c, X.coinCap() - S.coins)), gs = Math.max(0, Math.min(s, X.salvCap() - S.salv)); S.coins += gc; S.salv += gs; return [gc, gs]; }
   X.addCapped = addCapped;
   X.save = function () { BB.save(); lastSave = Date.now(); };
@@ -158,7 +159,7 @@
     S.coins -= d.c[0]; S.salv -= d.s[0]; var nb = {id: ++cc.nid, t: g.t, x: g.x, y: g.y, l: 0, up: {to: 1, total: d.t[0], done: 0, last: Date.now()}, st: 0, lt: Date.now()}; cc.bld.push(nb);
     V.ghost = null; BB.sfx("upgrade"); V.puff(g.x + d.w / 2, g.y + d.h / 2, 12, "#e8d9a0", 40, 0.6); BB.track("cc_build", {t: g.t}); stat("built"); V.sel = nb; X.selBar(); X.hud(); X.save();
   }
-  X.ghostMove = function (x, y) { if (!V.ghost) return; var d = C.B[V.ghost.t]; V.ghost.x = Math.max(C.RING, Math.min(N - C.RING - d.w, x)); V.ghost.y = Math.max(C.RING, Math.min(N - C.RING - d.h, y)); ghostBar(); };
+  X.ghostMove = function (x, y) { if (!V.ghost) return; var d = C.B[V.ghost.t]; V.ghost.x = Math.max(C.RING, Math.min(N - C.RING - d.w, x)); V.ghost.y = Math.max(C.RING, Math.min(N - C.RING - d.h, y)); var gk = V.ghost.x + "," + V.ghost.y; if (V.ghost._k !== gk) { V.ghost._k = gk; BB.vibe(4); BB.sfx("tick"); } ghostBar(); };
   // fences
   X.startPaint = function () { X.closePanel(); V.ghost = null; V.sel = null; V.paint = {on: false, erase: false, n: 0}; paintBar(); };
   function paintBar() {
@@ -177,8 +178,27 @@
   X.tapAt = function (x, y) {
     var tx = Math.floor(x), ty = Math.floor(y), hit = null; cc.bld.forEach(function (b) { var d = C.B[b.t]; if (tx >= b.x && tx < b.x + d.w && ty >= b.y && ty < b.y + d.h && (!hit || d.kind !== "wall")) hit = b; });
     if (hit && C.B[hit.t].kind === "col" && collectable(hit)) { X.collect(hit); }
-    V.sel = hit; BB.sfx("click"); X.selBar();
+    if (hit && hit.up) X.speedTap(hit);
+    V.sel = hit; BB.sfx(hit && hit.up ? "hammer" : "click"); X.selBar();
   };
+  // ---- v0.7 hands-on base helpers ----
+  X.collectable = function (b) { return C.B[b.t].kind === "col" && collectable(b); };
+  X.collectAll = function (src) {
+    var n = 0, tot = 0; cc.bld.forEach(function (b) { if (C.B[b.t].kind === "col" && collectable(b)) { var before = b.st; X.collect(b); if (b.st < before) n++; } });
+    if (n) { stat("sweeps"); BB.vibe([20, 30, 20]); if (BB.FX) BB.FX.banner(src === "shake" ? "SHAKE COLLECT!" : "SWEPT!", "#ffd35a", n + " collectors", {}); }
+    return n;
+  };
+  X.speedTap = function (b) {
+    if (!b.up) return false; var u = b.up, d = C.B[b.t]; u.taps = u.taps || 0; var cx0 = b.x + d.w / 2, cy0 = b.y + d.h / 2;
+    if (u.taps >= 25) { if (!u.capd) { u.capd = 1; X.toast("That is as fast as hands can go. Spend gems to finish it."); } V.puff(cx0, cy0, 3, "#aaa", 20, 0.3); return false; }
+    u.taps++; u.done += Math.max(0.02, u.total * 0.012); V.puff(cx0, cy0, 6, "#ffd35a", 60, 0.45); V.puff(cx0, cy0, 3, "#fff", 80, 0.3); V.float(cx0, b.y - 0.2, "+" + (u.taps >= 25 ? "MAX" : "SPEED"), "#ffe08a"); BB.vibe(8);
+    if (BB.FX) BB.FX.sparkAt && BB.FX.sparkAt(cx0, cy0, d); if (u.done >= u.total) { finishUp(b, "taps"); X.selBar(); } return true;
+  };
+  X.crank = function (b) {
+    if (!b || b.up) return false; var d = C.B[b.t], l = b.l, can = canUp(b); if (can !== true) { BB.sfx("deny"); X.toast(can); return false; }
+    X.doUp(b); if (b.up && !b.up.cr) { b.up.cr = 1; b.up.total = Math.max(0.01, b.up.total * 0.95); X.toast("Cranked! 5% faster build."); stat("cranks"); X.save(); } return true;
+  };
+  X.moveBuilding = function (b, x, y) { b.x = x; b.y = y; X.save(); };
   function collectable(b) { return b.l >= 1 && (b.st || 0) >= 1; }
   X.collect = function (b) {
     var d = C.B[b.t], amt = Math.floor(b.st || 0); if (amt < 1) return; var r = d.res === "c" ? addCapped(amt, 0)[0] : addCapped(0, amt)[1];
@@ -203,7 +223,7 @@
     if (b.up) { var g = BB.skipGems(b.up.total - b.up.done); h += '<button class="btn blue" data-skip="' + b.id + '">\u26A1 ' + g + " \u25C6</button>"; }
     else {
       if (d.kind === "col" && collectable(b)) h += '<button class="btn" data-collect="' + b.id + '">COLLECT</button>';
-      var can = canUp(b); if (can === true) h += '<button class="btn" data-up="' + b.id + '">UPGRADE<small>' + X.fmt(d.c[lv]) + "c" + (d.s[lv] ? " " + d.s[lv] + "s" : "") + " &middot; " + C.fmtT(d.t[lv]) + "</small></button>"; else if (can) h += '<button class="btn off" data-up="' + b.id + '">' + can + "</button>";
+      var can = canUp(b); if (can === true) h += '<button class="btn" data-up="' + b.id + '">UPGRADE<small>' + X.fmt(d.c[lv]) + "c" + (d.s[lv] ? " " + d.s[lv] + "s" : "") + " &middot; " + C.fmtT(d.t[lv]) + "</small></button>" + (S.set.simple ? "" : '<div class="crank" data-crank="' + b.id + '"><i></i><span>WIND TO START</span></div>'); else if (can) h += '<button class="btn off" data-up="' + b.id + '">' + can + "</button>";
       if (d.kind === "wall") h += '<button class="btn sec" data-fence="1">FENCES</button>';
       else h += '<button class="btn sec" data-move="' + b.id + '">MOVE</button>';
       if (d.kind === "train" || d.kind === "camp" || d.kind === "lab") h += '<button class="btn sec" data-nav="army">ARMY</button>';
@@ -355,7 +375,7 @@
   X.startScout = function (base, kind, mi) {
     X.close(); X.closePanel(); V.ghost = null; V.paint = null; V.sel = null; var sim = Sim.create(base, {ulv: cc.ulv, heroLvl: S.lvl, heroHp: cc.heroHp, heroId: X.heroId(), cap: C.RAID_SEC});
     if (base.crewUnits) sim.crewList = base.crewUnits;
-    raid = {base: base, kind: kind, mi: mi || 0, sim: sim, phase: "scout", sel: null, rec: [], acc: 0, speed: 1, hero: false, hpHero: null, dep: {}, lastDep: 0, army: cc.army, spl: cc.spells};
+    raid = {base: base, kind: kind, mi: mi || 0, sim: sim, phase: "scout", sel: null, rec: [{t: 0, k: "rv", v: 2}], acc: 0, speed: 1, hero: false, hpHero: null, dep: {}, lastDep: 0, army: cc.army, spl: cc.spells};
     if (kind === "practice") { raid.army = practiceArmy(); raid.spl = practiceSpells(); raid.noHero = true; }
     V.showHeat = false; V.analysis = null; V.showRanges = false;
     document.body.classList.add("raiding"); $("base").classList.add("m-raid"); V.mode = "raid"; V.setTheme(base.theme === "a" ? "a" : "p"); V.sim = sim; V.scout = true; V.showDeploy = false; V.parts = []; V.projs = []; V.rings = []; V.floats = []; V.rubble = [];
@@ -411,13 +431,29 @@
     $("r-star1").className = s.pct >= 50 ? "on" : ""; $("r-star2").className = s.coreDead ? "on" : ""; $("r-star3").className = s.pct >= 100 ? "on" : "";
   }
   var denyAt = 0;
+  X.castSpell = function (k, x, y, quiet) {
+    if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done) return false; var s = raid.sim; if (x < 0 || y < 0 || x > N || y > N) return false; if ((raid.spl[k] || 0) < 1) return false;
+    s.spell(k, x, y); if (BB.FX) BB.FX.spell(k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: k, x: +x.toFixed(2), y: +y.toFixed(2)}); raid.spl[k]--; BB.sfx("ult"); BB.vibe([14, 20, 26]); V.ring(x, y, 3, C.SP[k].col);
+    if (!raid.spl[k]) { if (raid.sel && raid.sel.t === "s" && raid.sel.k === k) raid.sel = null; } raidBar(); startClock(); return true;
+  };
+  // v0.7: any hands-on sim action is applied now (between ticks) and recorded with the sim clock, so replays match live play
+  X.rAct = function (a) {
+    if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done) return false; var s = raid.sim, ok = s.act(a); if (!ok) return false;
+    var e = {t: +s.t.toFixed(2)}; for (var k in a) e[k] = typeof a[k] === "number" ? +a[k].toFixed(2) : a[k]; if (e.p) e.p = a.p.map(function (q) { return [+q[0].toFixed(2), +q[1].toFixed(2)]; }); raid.rec.push(e); startClock(); return true;
+  };
+  X.deployUnit = function (k, x, y, perf) {
+    if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done) return null; var s = raid.sim; if ((raid.army[k] || 0) < 1) return null; var u = s.deploy(k, x, y); if (!u) return null;
+    var e = {t: +s.t.toFixed(2), k: k, x: +x.toFixed(2), y: +y.toFixed(2)}; if (perf) { e.perf = 1; s.perfBonus(u); } raid.rec.push(e); raid.army[k]--; raid.dep[k] = (raid.dep[k] || 0) + 1; startClock();
+    if (cc.tut === 2) { cc.tut = 3; BB.FX && BB.FX.arrowOff(); }
+    if (!raid.army[k]) { if (raid.sel && raid.sel.t === "u" && raid.sel.k === k) { raid.sel = null; C.UORDER.forEach(function (q) { if (!raid.sel && raid.army[q] > 0) raid.sel = {t: "u", k: q}; }); } raidBar(); } else raidBar(); return u;
+  };
   X.raidTap = function (x, y, first) {
     if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done || !raid.sel) return; var s = raid.sim, sel = raid.sel, now = performance.now();
-    if (sel.t === "s") { if (!first) return; if (x < 0 || y < 0 || x > N || y > N) return; if ((raid.spl[sel.k] || 0) < 1) return; s.spell(sel.k, x, y); if (BB.FX) BB.FX.spell(sel.k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: sel.k, x: +x.toFixed(2), y: +y.toFixed(2)}); raid.spl[sel.k]--; BB.sfx("ult"); V.ring(x, y, 3, C.SP[sel.k].col); if (!raid.spl[sel.k]) { raid.sel = null; } raidBar(); startClock(); return; }
+    if (sel.t === "s") { if (!first) return; X.castSpell(sel.k, x, y); return; }
     if (!first && now - raid.lastDep < 85) return; var cx = Math.max(0.5, Math.min(N - 0.5, x)), cy = Math.max(0.5, Math.min(N - 0.5, y));
     if (!s.canDeploy(cx, cy)) { if (first && now - denyAt > 1200) { denyAt = now; X.toast("Deploy troops from the edge, outside the plot"); BB.sfx("deny"); } return; }
     raid.lastDep = now; if (BB.FX) { BB.FX.deployRing(cx, cy, sel.t === "h"); BB.vibe(6); } var jx = (Math.random() - 0.5) * 0.5, jy = (Math.random() - 0.5) * 0.5;
-    if (sel.t === "u") { if ((raid.army[sel.k] || 0) < 1) return; var u = s.deploy(sel.k, cx + jx, cy + jy); if (!u) return; raid.rec.push({t: +s.t.toFixed(2), k: sel.k, x: +(cx + jx).toFixed(2), y: +(cy + jy).toFixed(2)}); raid.army[sel.k]--; raid.dep[sel.k] = (raid.dep[sel.k] || 0) + 1; BB.sfx("shoot"); if (cc.tut === 2) { cc.tut = 3; BB.FX && BB.FX.arrowOff(); } if (!raid.army[sel.k]) { raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); } else raidBar(); }
+    if (sel.t === "u") { if ((raid.army[sel.k] || 0) < 1) return; var pf = BB.TCH && BB.TCH.perfNow && BB.TCH.perfNow(); var u = X.deployUnit(sel.k, cx + jx, cy + jy, pf); if (!u) return; BB.sfx("shoot"); if (pf && BB.TCH.perfFx) BB.TCH.perfFx(u); }
     else if (sel.t === "h") { if (raid.hero || cc.heroHp <= 0.2) return; var h = s.deploy("hero", cx, cy, {lvl: S.lvl, hpFrac: cc.heroHp, hid: X.heroId()}); if (!h) return; raid.hero = h; raid.rec.push({t: +s.t.toFixed(2), k: "hero", x: +cx.toFixed(2), y: +cy.toFixed(2)}); BB.sfx("roar"); if (BB.FX) BB.FX.heroEntrance(cx, cy, X.heroId()); raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); }
     startClock();
   };
