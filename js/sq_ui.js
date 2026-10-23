@@ -32,7 +32,7 @@
   function head() {
     var q = SQ.st(), tabs = [["squad", "SQUAD"], ["summon", "SUMMON"], ["trials", "TRIALS"], ["missions", "MISSIONS"], ["codex", "CODEX"], ["run", "RUN"]], b = "";
     var badge = {missions: SQ.missionsReady(), codex: SQ.cdxReady(), summon: q.tix >= 1 ? 1 : 0, trials: SQ.sta() >= D.STAM_MAX ? 1 : 0};
-    tabs.forEach(function (t) { b += '<button class="sq-tab' + (tab === t[0] ? " on" : "") + (t[0] === "run" ? " soon" : "") + '" data-a="tab" data-b="' + t[0] + '">' + t[1] + (t[0] === "run" ? "<small>soon</small>" : "") + (badge[t[0]] ? '<em class="sq-dot"></em>' : "") + "</button>"; });
+    tabs.forEach(function (t) { b += '<button class="sq-tab' + (tab === t[0] ? " on" : "") + "" + '" data-a="tab" data-b="' + t[0] + '">' + t[1] + "" + (badge[t[0]] ? '<em class="sq-dot"></em>' : "") + "</button>"; });
     return '<div class="sq-top"><b class="sq-title">SQUAD HQ</b><span class="sq-chip" title="Summon tickets"><img src="assets/ui_star.webp" alt="">' + q.tix + '</span><span class="sq-chip"><i class="ico gem"></i>' + S.gems + '</span><span class="sq-chip"><span class="bolt">&#9889;</span><b id="sq-stn">' + SQ.sta() + "/" + D.STAM_MAX + '</b></span><button class="sq-x" data-a="close" aria-label="Close">&times;</button></div><div class="sq-tabs">' + b + "</div>";
   }
   function draw() {
@@ -120,12 +120,22 @@
     return h;
   }
   function runTab() {
-    return '<div class="sq-sec sq-run"><div class="sq-banner" style="background-image:url(assets/sq/cut_scx.webp)"><b>FARM DEFENSE RUN</b><small>COMING SOON</small></div><p>A side-scrolling action mode is being prototyped separately. When it arrives, your squad&#39;s <b>burst</b> will be the special move you trigger mid-run, using the same element wheel, charge meters and leader skills you set up here.</p><p><small>Nothing in this build depends on it. Your team, roster and progress are already saved and will carry over.</small></p><button class="btn sec" disabled>COMING SOON</button></div>';
+    var r = SQ.runSt(), left = SQ.runLeft(), en = SQ.sta(), ok = left > 0 && en >= D.RUN.cost, why = left <= 0 ? "Daily limit reached" : en < D.RUN.cost ? "Need " + D.RUN.cost + " energy" : "";
+    return '<div class="sq-sec sq-run"><div class="sq-banner" style="background-image:url(assets/sq/cut_scx.webp)"><b>FARM DEFENSE RUN</b><small>' + left + "/" + D.RUN.daily + ' runs left today</small></div><p>Run and gun across the farm lane: alien raiders, rescues, weapon drops, a hop-in tractor tank and a mini-boss. Rescue animals and farmhands for loot.</p><p><small>Costs <b>' + D.RUN.cost + ' energy</b> per run (you have ' + en + "/" + D.STAM_MAX + "). Loot: coins, tonic, a first-clear ticket and hero shards, with daily caps (" + r.coins + "/" + D.RUN.dayCoins + ' coins today). Leaving a run early forfeits the energy.</small></p><button class="btn" data-a="runGo"' + (ok ? "" : " disabled") + ">" + (ok ? "PLAY &middot; " + D.RUN.cost + " ENERGY" : why.toUpperCase()) + "</button></div>";
   }
+  var runOv = null;
+  function runClose() { if (runOv) { runOv.remove(); runOv = null; } }
+  window.addEventListener("message", function (e) {
+    if (e.origin !== location.origin || !e.data || !e.data.bbrun || !runOv) return;
+    if (e.data.bbrun === "done") { var t = SQ.runReward(e.data); runClose(); sfx("stingwin"); msg = "Run complete: " + t; draw(); }
+    else if (e.data.bbrun === "exit") { runClose(); msg = "You left the run early. Energy was spent, no loot."; draw(); }
+  });
+  function runOpen() { runClose(); runOv = document.createElement("div"); runOv.className = "runov"; runOv.innerHTML = '<iframe src="run.html?embed=1" title="Farm Defense Run" allow="autoplay"></iframe>'; document.body.appendChild(runOv); }
   // ---------- actions ----------
   function say(t) { msg = t || ""; draw(); }
   function act(a, b, c) {
     var o;
+    if (a === "runGo") { var rm = SQ.runStart(); if (rm) return say(rm); sfx("click"); msg = ""; draw(); return runOpen(); }
     if (a === "close") return UI.close(); if (a === "tab") { sfx("click"); return UI.tab(b); }
     if (a === "sel") { sel = b; var ob = SQ.st().own[b]; if (ob) ob.nw = 0; sfx("click"); return draw(); } if (a === "unsel") { sel = ""; msg = ""; return draw(); }
     if (a === "pick") { var q = SQ.st(), free = D.ORDER.filter(function (id) { return q.own[id] && q.team.indexOf(id) < 0; })[0]; if (!free) return say("Every unit you own is already on the team"); SQ.setSlot(+b, free); sfx("click"); return draw(); }

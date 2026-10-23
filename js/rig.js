@@ -68,7 +68,7 @@
   RIG.bullet = function (x1, y1, x2, y2, kind, o) {
     var b = take(BU); if (!b) return null; var k = KIND[kind] || KIND.rifle, dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1; o = o || {};
     b.on = 1; b.x = x1; b.y = y1; b.sx = x1; b.sy = y1; b.ex = x2; b.ey = y2; b.ux = dx / L; b.uy = dy / L; b.L = L; b.d = 0; b.k = k; b.kind = kind; b.spd = (o.spd || k.spd) * (0.92 + Math.random() * 0.16);
-    b.arc = k.arc ? min(26, L * 0.28) : 0; b.imp = o.imp !== false; b.big = o.big || 1; b.delay = o.delay || 0; return b;
+    b.arc = o.arc !== undefined ? o.arc : (k.arc ? min(26, L * 0.28) : 0); b.sm = 0; b.rot = Math.atan2(dy, dx); b.imp = o.imp !== false; b.big = o.big || 1; b.delay = o.delay || 0; return b;
   };
   RIG.spark = function (x, y, a, spd, life, c, g) {
     var s = take(SPK); if (!s) return; s.on = 1; s.x = x; s.y = y; s.vx = cos(a) * spd; s.vy = sin(a) * spd; s.l = life; s.l0 = life; s.c = c; s.g = g === undefined ? 380 : g;
@@ -205,7 +205,7 @@
     i.rc *= exp(-dt * 12); i.flash -= dt; i.hit = max(0, i.hit - dt * 5); i.fl = max(0, i.fl - dt * 5.5); i.punch = max(0, i.punch - dt * 4.2); i.bst = max(0, i.bst - dt * 0.85); i.vic = max(0, i.vic - dt);
     // secondary motion (hat / cape / wings / head lag)
     var drive = -i.mv * 0.5 - i.rc * 0.5 + sin(i.t * 2.6 + i.seed) * 0.06 * (0.5 + i.mv) - i.fl * 0.5; spring(i.sp, drive * 0.3, dt, 70, 7); spring(i.sp2, drive, dt, 34, 4.2); spring(i.sp3, drive * 0.8 + sin(i.t * 3.1) * 0.05, dt, 42, 5);
-    pose(i);
+    (i.d.poseFn || pose)(i);
   };
   // triggers
   RIG.fire = function (i, o) {
@@ -260,9 +260,9 @@
   RIG.muzzle = function (i) { return i.mz; };
 
   // ---------- shared pieces ----------
-  function flashAfter(mx, my, sz, ang) {
+  function flashAfter(mx, my, sz, ang, shape) {
     return function (cx, i) {
-      if (i.flash <= 0) return; var cl = calm(), im = flashImg(), s = sz * (cl ? 0.42 : 0.8 + Math.random() * 0.55), ga = cx.globalAlpha;
+      if (i.flash <= 0) return; var cl = calm(), fs0 = shape && RIG.flashShape ? RIG.flashShape(shape) : null; if (fs0) { RIG.drawFlash(cx, fs0, mx, my, sz, ang, cl); return; } var im = flashImg(), s = sz * (cl ? 0.42 : 0.8 + Math.random() * 0.55), ga = cx.globalAlpha;
       cx.globalCompositeOperation = "lighter"; cx.globalAlpha = ga * (cl ? 0.5 : 1); cx.save(); cx.translate(mx, my); if (!cl) cx.rotate((ang || 0) + Math.random() * 0.6); cx.drawImage(im, -s / 2, -s / 2, s, s); cx.restore(); cx.globalCompositeOperation = "source-over"; cx.globalAlpha = ga;
     };
   }
@@ -296,7 +296,7 @@
       {n: "armFl", par: "armFu", x: 0, y: 14, im: "arm_l", pv: [0.5, 0.05]}
     ]
   });
-  DEFS.scx.map.wpn.after = flashAfter(32.2, -1.2, 40, 0);
+  DEFS.scx.map.wpn.after = flashAfter(32.2, -1.2, 44, 0, "rail");
 
   // ---------- Baleguard (AI-generated parts: cockpit dome w/ pilot, pelvis, 2 tractor-wheel legs, 2 upper arms, hay-bale fist, energy cannon forearm, 2 solar wings) ----------
   RIG.define("bale", {
@@ -316,17 +316,17 @@
       {n: "armFl", par: "armFu", x: 0, y: 17, im: "b_cannon", pv: [0.3, 0.14], after: null}
     ]
   });
-  DEFS.bale.map.armFl.after = function (cx, i) { flashAfter(13.5, 13.5, 46, 0)(cx, i); glowAfter(13.5, 13.5, 6, "#6fc8ff")(cx, i); };
+  DEFS.bale.map.armFl.after = function (cx, i) { flashAfter(13.5, 13.5, 50, 0, "ring")(cx, i); glowAfter(13.5, 13.5, 6, "#6fc8ff")(cx, i); };
 
   // ---------- death: the parts fly apart and tumble (cosmetic ragdoll) ----------
   var COR = [], q1;
   for (q1 = 0; q1 < 8; q1++) COR.push({on: 0, pcs: [], l: 0});
   RIG.kill = function (i, o) {
-    if (!i || !RIG.ready) return; o = o || {}; var c = null, k, n, nd, d = i.d;
+    if (!i) return; o = o || {}; var c = null, k, n, nd, d = i.d;
     for (k = 0; k < COR.length; k++) if (!COR[k].on) { c = COR[k]; break; } if (!c) c = COR[0];
     c.on = 1; c.l = 1.9; c.pcs.length = 0; var F = i.face * i.gs, S = i.gs, ox = i.gx, oy = i.gy, cxm = ox, cym = oy - (d.H || 60) * S * 0.5, big = o.big || 1;
     for (n = 0; n < d.nodes.length; n++) {
-      nd = d.nodes[n]; var pt = PARTS[nd.im]; if (!pt || nd.hide) continue; var m = i.wm[nd.n];
+      nd = d.nodes[n]; var pt = PARTS[nd.im]; if (!pt || nd.hide || (nd.vis && !nd.vis(i))) continue; var m = i.wm[nd.n];
       var A = [m[0], m[1], m[2], m[3], m[4], m[5]];
       var dx = A[4] - cxm, dy = A[5] - cym, pc = {pt: pt, pv: nd.pv, a: A[0], b: A[1], c: A[2], d: A[3], e: A[4], f: A[5], ox: 0, oy: 0, rot: 0, vx: dx * 4.2 * big + (o.kx || 0) * 60 + rnd(-30, 30), vy: -rnd(110, 250) * big + dy * 2.5, vr: rnd(-7, 7), gy: oy + rnd(-2, 3), b2: 0};
       c.pcs.push(pc);
@@ -431,7 +431,7 @@
       q: {bob: 1.3, br: 0.4, crh: 4, swing: 0.6, lift: 2.4, stF: 0.12, stB: -0.16, sway: 1, lean: 0.06, aimLean: 0.1, kick: 0.1, kdx: 1.3, kback: 3.2, rest: 0.9},
       mzNode: {n: "wpn", x: (1 - 0.28) * w, y: (0.45 - 0.55) * ws.h, dir: 0}, ejNode: {n: "wpn", x: 0.15 * w, y: -2}, nodes: nodes
     };
-    var df = RIG.define("ch_" + id, d); df.map.wpn.after = flashAfter((1 - 0.28) * w, -1, 20, 0);
+    var df = RIG.define("ch_" + id, d); df.map.wpn.after = flashAfter((1 - 0.28) * w, -1, 22, 0, RIG.shapeFor ? RIG.shapeFor(ws.kind) : null);
     if (cf.w === "saw") { df.pose2 = function (i) { i.p.wpn.r += 0; }; }
     return df;
   }

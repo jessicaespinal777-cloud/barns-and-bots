@@ -58,6 +58,7 @@
     }
   };
   FX.PUI = PUI; FX.TIER = TIER; FX.R = R; FX.calm = calm; FX.ease = ease; FX.back = back;
+  FX._h = {px: px, py: py, sp: function (x, y, o) { return sp(x, y, o); }, burst: function (x, y, n, o) { return burst(x, y, n, o); }, addRing: function (x, y, r, c, o) { return addRing(x, y, r, c, o); }, sfx: sfx, R: R, calm: calm, cx: function () { return G && G.cx; }, G: function () { return G; }, qn: qn};
 
   // ---- camera ----
   var cam = FX.cam = {z: 1, tz: 1, zh: 0, fx: 180, fy: 350, shake: 0, hs: 0, slowV: 1, slowT: 0};
@@ -189,6 +190,7 @@
       sfx(kind === "sniper" ? "rail" : kind === "lobber" ? "thud" : "dshot"); return true;
     }
     if ((k === "bolt" || k === "lob") && e.hid && heroRigs[e.hid === "scx" ? "scx" : "bale"] && rigR()) return true;
+    if ((k === "bolt" || k === "lob") && FX.crOwns && FX.crOwns(e)) return true;
     if (k === "bolt" || k === "lob") {
       var hk = e.hid === "scx" ? "scx" : e.hid ? "bolt" : "troop"; X1 = px(e.x1); Y1 = py(e.y1); X2 = px(e.x2); Y2 = py(e.y2); ang = Math.atan2(Y2 - Y1, X2 - X1);
       addProj(X1, Y1 - 8, X2, Y2, k === "lob" ? "lobber" : hk, k === "lob" ? 0.45 : e.hid === "scx" ? 0.08 : 0.16, {arc: k === "lob" ? 20 : 0, spl: 1});
@@ -210,7 +212,7 @@
     }
     if (k === "bdead") { collapse(e); return true; }
     if (k === "udead") {
-      if (e.silent) return true; X0 = px(e.x); Y0 = py(e.y);
+      if (e.silent) return true; X0 = px(e.x); Y0 = py(e.y); if (FX.crDead && FX.crDead(e, X0, Y0)) return true;
       if (e.team === "a" && (e.a === "hero" || e.a === "scx") && rigR()) { var hr = heroRigs[e.a === "scx" ? "scx" : "bale"]; if (hr) { rigR().kill(hr, {big: 1, kx: 0, col: e.a === "scx" ? "#46e6d2" : "#ffd35a"}); burst(X0, Y0, 12, {s0: 40, s1: 120, g: 70, l0: 0.3, l1: 0.8, r0: 1.5, r1: 3, cols: ["#ffd7a0", "#fff", "#ff9a8a"], ty: 3}); addRing(X0, Y0, 18, "#ffd7a0", {d: 0.35}); sfx("hurt"); BB.vibe && BB.vibe(14); return true; } } var sz = 18; for (var kk in C.U) if (C.U[kk].art === e.a) sz = C.U[kk].sz; if (e.a === "hero") sz = 28;
       pushCap(ghosts, {art: e.a, x: X0, y: Y0, vx: R(-26, 26), z: 0, vz: R(110, 150), rot: 0, vr: R(-7, 7), t: 0, d: 0.95, sz: sz, flip: Math.random() < 0.5, b: 0}, 24);
       burst(X0, Y0, e.team === "a" ? 7 : 10, {s0: 30, s1: 90, g: 70, l0: 0.3, l1: 0.7, r0: 1.5, r1: 3, cols: e.team === "a" ? ["#ffd7a0", "#fff", "#ff9a8a"] : ["#a8ff6a", "#fff", "#6ad0ff"], ty: 3});
@@ -274,6 +276,7 @@
     var b = V.sim && V.sim.bld[e.b], X0 = px(e.x), Y0 = py(e.y), big = e.w > 2, core = e.kind === "core", wall = e.kind === "wall";
     if (b) { var f = b._f || (b._f = {}); f.dead = V.t; var d = C.B[b.t]; if (!wall && b.kind !== "trap" && bsprite(b)) pushCap(colls, {art: bsprite(b), x: px(b.x) + d.w * T / 2, by: py(b.y) + d.h * T + 2, ww: d.w * T * (d.kind === "def" ? 1.15 : 1.22), cap: d.h * T * (d.kind === "def" ? 2.2 : 2.0), t: 0, d: core ? 0.9 : 0.55}, 12); }
     burst(X0, Y0, wall ? 6 : big ? 26 : 14, {s0: 30, s1: wall ? 80 : 150, g: 130, l0: 0.4, l1: 1.0, r0: 1.5, r1: 3.8, cols: wall ? ["#9c7a4a", "#6b4423", "#c8a066"] : ["#8a8a8a", "#b0a090", "#6a5a50", "#d8c8a8"], ty: 4});
+    if (!wall && rigR() && rigR().decal) { rigR().decal(X0, Y0 + 6, "scorch", big ? 18 : 11); if (rigR().smoke) { rigR().smoke(X0, Y0, big ? 12 : 8, "#3e3a40", 0.85, 20); rigR().smoke(X0 + R(-6, 6), Y0 - 4, big ? 9 : 6, "#6a6870", 0.7, 26); } }
     burst(X0, Y0 + 2, wall ? 3 : big ? 10 : 6, {s0: 8, s1: 40, l0: 0.7, l1: 1.5, r0: 5, r1: big ? 12 : 8, c: "rgba(150,135,115,.6)", ty: 2, up: -10, grow: 9});
     if (!wall) { addRing(X0, Y0 + 4, big ? 54 : 32, "rgba(220,205,170,.9)", {d: 0.5, w: 3}); sp(X0, Y0, {l: 0.15, r: big ? 22 : 13, c: "#fff3c0", ty: 3}); FX.shake(big ? 4.5 : 1.8); if (big) FX.hitstop(0.05); sfx("collapse"); BB.vibe && BB.vibe(big ? 40 : 15); } else sfx("crack");
     if (core) { FX.shake(13); FX.hitstop(0.1); FX.slow(0.4, 0.8); FX.zoom(1.2, X0, Y0, 0.9); FX.flash("#fff", 0.55); addRing(X0, Y0, 140, "#ffd35a", {d: 0.9, w: 6, fill: 1, add: 1}); burst(X0, Y0, 30, {s0: 60, s1: 200, g: 60, l0: 0.6, l1: 1.3, r0: 2, r1: 4, cols: ["#ffd35a", "#fff", "#ff9a3a"], ty: 6}); banner("CORE DESTROYED!", "#ffd35a", "star earned", {big: 1}); BB.vibe && BB.vibe([40, 30, 40, 30, 120]); }
@@ -298,7 +301,7 @@
       var pos = crowPos(cr, cf); cr.trl.push(pos[0], pos[1]); if (cr.trl.length > 12) cr.trl.splice(0, 2); cr.cx = pos[0]; cr.cy = pos[1]; }
     for (i = later.length - 1; i >= 0; i--) { later[i].d -= dt; if (later[i].d <= 0) { var fn = later[i].fn; later.splice(i, 1); try { fn(); } catch (er) {} } }
     if (FX.dark) { FX.dark.t += dt; if (FX.dark.t > FX.dark.d) FX.dark = null; } if (FX.rays) { FX.rays.t += dt; if (FX.rays.t > FX.rays.d) FX.rays = null; } if (FX.surgeT > 0) FX.surgeT -= dt;
-    ambientUpdate(dt); simStatusFx(dt); if (FX.uiUpdate) FX.uiUpdate(dt);
+    ambientUpdate(dt); simStatusFx(dt); if (FX.uiUpdate) FX.uiUpdate(dt); if (FX.actUpdate) FX.actUpdate(dt);
   };
   function crowPos(cr, f) {
     if (f < 0.38) { var s = f / 0.38, a = cr.ph + s * 7 * cr.dir; return [cr.hx + Math.cos(a) * cr.rad * (0.3 + s), cr.hy - 6 - s * 30 + Math.sin(a * 1.3) * cr.rad * 0.4 * s]; }
@@ -383,10 +386,14 @@
   function rr2(cx, x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); cx.fill(); }
   FX.bldOver = function (b, x, y, w, h) {
     var cx = G.cx, hp = b.hp / b.mx;
+    if (b.kind !== "wall" && b.kind !== "trap") { var g2 = b._g || (b._g = {stg: 0}), stg = hp < 0.2 ? 3 : hp < 0.4 ? 2 : hp < 0.72 ? 1 : 0;
+      if (stg > g2.stg) { g2.stg = stg; var bx = x + w / 2, by2 = y + h * 0.5; burst(bx, by2, 5 + stg * 3, {s0: 30, s1: 100, g: 150, l0: 0.3, l1: 0.8, r0: 1.2, r1: 2.8, cols: ["#8a8a8a", "#b0a090", "#6a5a50"], ty: 4}); sfx("crack"); if (rigR() && rigR().decal) rigR().decal(bx + R(-4, 4), y + h - 2, "scorch", 5 + stg * 2); if (rigR() && rigR().smoke) rigR().smoke(bx, y + h * 0.3, 6, "#4a4650", 0.7, 16); }
+      if (hp < 0.4) { cx.fillStyle = "rgba(20,12,8," + (hp < 0.2 ? 0.34 : 0.22) + ")"; cx.beginPath(); cx.ellipse(x + w / 2, y + h - 2, w * 0.5, h * 0.2, 0, 0, TAU); cx.fill(); }
+      if (hp < 0.2 && !calm() && Math.random() < 0.12 * FX.q) sp(x + R(w * 0.25, w * 0.75), y + h * R(0.25, 0.6), {vy: R(-30, -14), l: 0.6, r: 1.3, c: "#ffb060", ty: 6}); }
     if (hp < 0.72 && b.kind !== "wall") { cx.save(); cx.beginPath(); cx.rect(x + 1, y + h * 0.1, w - 2, h * 0.9); cx.clip(); crackAt(cx, x, y, w, h, b.i || 1, hp < 0.4 ? 5 : 3); if (hp < 0.4) { cx.fillStyle = "rgba(10,6,4,.18)"; cx.fillRect(x, y, w, h); } cx.restore(); }
     if (b.frz > 0) { cx.fillStyle = "rgba(150,225,255,.28)"; cx.fillRect(x + 1, y + h * 0.1, w - 2, h * 0.9); cx.strokeStyle = "rgba(230,250,255,.8)"; cx.lineWidth = 1; cx.strokeRect(x + 1.5, y + h * 0.1 + 0.5, w - 3, h * 0.9 - 1); }
     if (b.kind === "def") {
-      var f = b._f || (b._f = {ra: b.aim || 0, rc: 0, ls: -9, lang: 0}), dt = V.dtv || 0.016, tgtA = V.t - f.ls < 1.2 ? f.lang : f.ra + Math.sin(V.t * 0.8 + (b.i || 0)) * 0.015, da = tgtA - f.ra; while (da > 3.14159) da -= TAU; while (da < -3.14159) da += TAU; f.ra += da * Math.min(1, dt * 16); f.rc = Math.max(0, f.rc - dt * 7);
+      var f = b._f || (b._f = {ra: b.aim || 0, rc: 0, ls: -9, lang: 0}), dt = V.dtv || 0.016, tgtA = V.t - f.ls < 1.2 ? f.lang : f.ra + Math.sin(V.t * 0.8 + (b.i || 0)) * 0.015, tgtA = Math.round(tgtA / (TAU / 16)) * (TAU / 16); var da = tgtA - f.ra; while (da > 3.14159) da -= TAU; while (da < -3.14159) da += TAU; f.ra += da * Math.min(1, dt * 16); f.rc = Math.max(0, f.rc - dt * 7);
       var pxc = x + w / 2, pyc = y + h * 0.42, L = Math.min(14, Math.max(8, w * 0.42));
       if (rigR()) { var rt = b._rt || (b._rt = rigR().turretNew()); rigR().turretStep(rt, dt, f.ra); rigR().drawTurret(cx, rt, {x: pxc, y: pyc, s: L, type: b.t, theme: V.theme, t: V.t + (b.i || 0)}); }
       else {
@@ -405,10 +412,11 @@
     var moving = Math.hypot(dx, dy) > 0.012; if (moving) f.mvT = V.t; moving = V.t - f.mvT < 0.18; var age = V.t - f.born;
     var sz = u.sz * 1.2, x = px(f.rx), y = py(f.ry);
     var RG = rigR(), rig = null; if (RG && u.hero) { rig = f.rig || (f.rig = RG.make(u.hid === "scx" ? "scx" : "bale")); heroRigs[u.hid === "scx" ? "scx" : "bale"] = rig; f.rx0 = x; f.ry0 = y; }
+    var cr0 = RG && !u.hero && !u.decoy && FX.crOf ? FX.crOf(u) : null; if (cr0 && f.gone) return true;
     f.ph += dt * (moving ? (u.fly ? 9 : 13) : 2.6); var s1 = Math.sin(f.ph), bob = moving ? Math.abs(s1) * Math.max(2, sz * 0.14) : s1 * 0.5 + 0.5, drop = 0;
     if (age < 0.3) { var df = age / 0.3; drop = f.drop * (1 - df) * (1 - df); } else if (!f.landed) { f.landed = 1; f.sq = 0.35; var gp = px(u.x), gq = py(u.y); addRing(gp, gq, 17, u.hero ? "#ffd35a" : "#fff", {d: 0.35, w: 2}); burst(gp, gq, u.hero ? 8 : 4, {s0: 15, s1: 50, l0: 0.25, l1: 0.5, r0: 1.5, r1: 3, c: "#d9c9a0", ty: 2, grow: 3}); if (u.hero) { FX.shake(2.5); sfx("thud"); } }
     f.sq = Math.max(0, f.sq - dt * 3.4); var atk = u.atk > 0, lx = 0, ly = 0, lunge = 0;
-    if (atk) { var tg = u.tgt, tx = tg ? (tg.cx !== undefined ? tg.cx : tg.x) : u.x + u.face, ty = tg ? (tg.cy !== undefined ? tg.cy : tg.y) : u.y, ang = Math.atan2(ty - u.y, tx - u.x), per = u.rng > 2 ? 0.55 : 0.4, ph = ((V.t + (u.wob || 0)) % per) / per;
+    if (atk && !cr0) { var tg = u.tgt, tx = tg ? (tg.cx !== undefined ? tg.cx : tg.x) : u.x + u.face, ty = tg ? (tg.cy !== undefined ? tg.cy : tg.y) : u.y, ang = Math.atan2(ty - u.y, tx - u.x), per = u.rng > 2 ? 0.55 : 0.4, ph = ((V.t + (u.wob || 0)) % per) / per;
       lunge = u.rng > 2 ? -Math.sin(ph * 3.14) * 1.2 : Math.pow(Math.sin(Math.min(1, ph * 1.6) * 3.14), 2) * Math.min(5, sz * 0.28); lx = Math.cos(ang) * lunge; ly = Math.sin(ang) * lunge * 0.6;
       if (u.rng <= 2 && V.t > f.nextHit && ph > 0.35) { f.nextHit = V.t + per; var hx = px(tx), hy = py(ty); burst(hx - Math.cos(ang) * 6, hy - Math.sin(ang) * 6 - 4, 3, {a0: ang + 2.6, a1: ang + 3.7, s0: 40, s1: 100, l0: 0.12, l1: 0.3, r0: 1, r1: 1.8, c: "#fff3b0", ty: 1}); if (u.sz >= 20) { addRing(hx, hy, 12, "#ffb060", {d: 0.25, w: 2}); FX.shake(0.7); sfx("thud"); } else sfx("hit"); }
     }
@@ -428,10 +436,11 @@
     if (u.slow > 0) { cx.fillStyle = "rgba(120,200,255,.35)"; cx.beginPath(); cx.ellipse(x, gy2, 11, 5, 0, 0, TAU); cx.fill(); }
     if (u.hero) { cx.strokeStyle = (u.hid === "scx" ? "rgba(70,230,210," : "rgba(255,211,90,") + (0.5 + 0.3 * Math.sin(V.t * 6)) + ")"; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(x, gy2, 13, 5, 0, 0, TAU); cx.stroke(); }
     if (u.ab > 0) { cx.globalCompositeOperation = "lighter"; cx.fillStyle = u.hid === "scx" ? "rgba(70,230,210,.35)" : "rgba(255,181,49,.4)"; cx.beginPath(); cx.arc(x, y - 8, 16 + Math.sin(V.t * 12) * 2, 0, TAU); cx.fill(); cx.globalCompositeOperation = "source-over"; if (Math.random() < 0.3 * FX.q) sp(x + R(-8, 8), y - R(0, 18), {vx: R(-8, 8), vy: R(-40, -20), l: 0.5, r: 1.8, c: u.hid === "scx" ? "#46e6d2" : "#ffd35a", ty: 5}); }
-    var art = u.art === "hero" ? "bg_front" : u.art, flip = u.face < 0, tilt = u.k === "roller" ? V.t * 8 : Math.sin(f.ph) * (moving ? 0.1 : 0.015) + (atk ? lunge * 0.03 : 0);
+    var art = u.art === "hero" ? "bg_front" : u.art, flip = u.face < 0, tilt = cr0 ? 0 : u.k === "roller" ? V.t * 8 : Math.sin(f.ph) * (moving ? 0.1 : 0.015) + (atk ? lunge * 0.03 : 0);
     cx.globalAlpha = u.veil > 0 ? 0.45 : u.dig > 0 ? 0.25 : 1; if (u.dig > 0) { cx.fillStyle = "rgba(90,60,30,.7)"; cx.beginPath(); cx.ellipse(x, y + 1, 9, 4, 0, 0, TAU); cx.fill(); }
-    cx.save(); cx.translate(x + lx, y - bob - drop + ly); if (u.k === "roller") { cx.translate(0, -sz * 0.4); cx.rotate(tilt); cx.translate(0, sz * 0.4); } else cx.rotate(tilt); cx.scale(sX, sY);
+    cx.save(); cx.translate(x + lx, y - bob - drop + ly); if (u.k === "roller" && !cr0) { cx.translate(0, -sz * 0.4); cx.rotate(tilt); cx.translate(0, sz * 0.4); } else cx.rotate(tilt); cx.scale(sX, sY);
     if (rig) { cx.rotate(-tilt); cx.translate(0, bob); heroGo(u, f, rig, RG, sz, moving, drop, atk, x, y, lx, ly, sX, sY, dt); }
+    else if (cr0 && FX.crGo(u, f, cr0, sz, moving, atk, x, y, lx, ly, drop, age, sX, sY, bob)) { }
     else if (RG && !u.fly && !u.decoy && u.k !== "roller" && G.sprSlice) {
       var ps_ = ((V.t + (u.wob || 0)) % (u.rng > 2 ? 0.55 : 0.4)) / (u.rng > 2 ? 0.55 : 0.4), st_ = f.st || (f.st = {});
       st_.ph = f.ph; st_.mv = moving ? 1 : 0; st_.atk = atk && u.rng <= 2 ? Math.pow(Math.sin(Math.min(1, ps_ * 1.6) * 3.14), 2) : 0; st_.rc = atk && u.rng > 2 ? Math.max(0, 1 - ps_ * 4) : 0; st_.hit = u.hit > 0 ? 1 : 0;
@@ -447,7 +456,8 @@
     if (moving && !u.fly && V.t > f.nextDust && !u.dig) { f.nextDust = V.t + 0.17 + R(0, 0.08); sp(x - u.face * 3 + R(-2, 2), gy2, {vx: R(-6, 6), vy: R(-10, -2), l: 0.35, r: 1.6, c: "rgba(200,185,150,.6)", ty: 2, grow: 4}); }
     f.hs += (u.hp - f.hs) * Math.min(1, dt * 3); if (f.hs < u.hp) f.hs = u.hp;
     var bw = u.hero ? 20 : Math.max(8, sz * 0.7), by = y - sz * 1.1 - bob - drop;
-    if ((u.hp < u.mx && !u.decoy) || u.hero || u.decoy) { var col = u.decoy || u.hero ? "#ffd35a" : u.team === "a" ? "#6ad0ff" : "#ff6a6a"; cx.fillStyle = "rgba(0,0,0,.65)"; cx.fillRect(x - bw / 2 - 1, by - 1, bw + 2, 4.5); cx.fillStyle = "rgba(255,255,255,.8)"; cx.fillRect(x - bw / 2, by, bw * Math.max(0, f.hs / u.mx), 2.5); cx.fillStyle = col; cx.fillRect(x - bw / 2, by, bw * Math.max(0, u.hp / u.mx), 2.5); }
+    if ((u.hp < u.mx && !u.decoy) || u.hero || u.decoy) FX.bar(cx, x, by, bw, Math.max(0, u.hp) / u.mx, Math.max(0, f.hs) / u.mx, u.decoy || u.hero ? "#ffd35a" : u.team === "a" ? "#6ad0ff" : "#ff6a6a", u.mx, u.hero || u.decoy);
+    if (cr0 && atk && FX.tline) FX.tline(u, x, y - sz * 0.5 - bob - drop);
     return true;
   };
   // ---- lighting ----
@@ -640,6 +650,7 @@
   };
   FX.levelUp = function (txt, sub) { banner(txt, "#ffd35a", sub, {big: true}); FX.confetti(innerWidth / 2, innerHeight * 0.55, 80, true); FX.flash("#fff1b0", 0.45); sfx("fanfare"); BB.vibe && BB.vibe([30, 40, 30, 40, 60]); };
   FX.clearAll = function () {
+    if (FX.actReset) FX.actReset();
     var i; for (i = 0; i < PCAP; i++) P[i].on = 0; live = 0; rings.length = 0; bolts.length = 0; beams.length = 0; projs.length = 0; ghosts.length = 0; colls.length = 0; crows.length = 0; nums.length = 0; meteors.length = 0; later.length = 0; tors.length = 0; banners.length = 0; flies.length = 0; confs.length = 0; pan = null; FX.arrowOff();
   };
 

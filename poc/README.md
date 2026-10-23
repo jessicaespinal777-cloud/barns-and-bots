@@ -32,7 +32,7 @@ The player hero (Scarecrow-X) now uses the same part-based rig as the main game 
 
 ## LEGAL-NOTES (not legal advice)
 - **Mechanics only.** The game takes inspiration from genre *mechanics* (side-scrolling run-and-gun; squad super-move cut-ins). Game mechanics/ideas are generally not copyrightable, but expression is — so everything expressive is original.
-- **All names are original**: Barns & Bots, Dusk Raid, Scarecrow-X, June "Dusty", Baleguard, Vorlax Walker, Tractor Tank, Murder of Crows, Sundown Salvo, Iron Harrow, Hollow Creek Farm. No SNK / Metal Slug / Supercell / Gumi / Brave Frontier (or other third-party) names, characters, logos, UI, art, or audio are used. Avoid adding such references in marketing/store text.
+- **All names are original**: Barns & Bots, Dusk Raid, Scarecrow-X, June "Dusty", Baleguard, Vorlax Walker, Tractor Tank, Murder of Crows, Sundown Salvo, Iron Harrow, Hollow Creek Farm. No third-party names, characters, logos, UI, art, or audio are used. Avoid adding such references in marketing/store text.
 - **Art**: all in-game sprites, backgrounds, UI and effects are procedurally drawn with canvas code in this repo. The one image, `assets/scarecrow-x.jpg`, is an AI-generated illustration made for this project (original character). AI-generated imagery may have limited/uncertain copyright protection and platform-policy implications — consider commissioning/redrawing final art before launch.
 - **Audio**: all SFX/music synthesized at runtime with WebAudio oscillators/noise; no samples.
 - **Fonts**: system fonts only (no web fonts).

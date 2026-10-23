@@ -167,5 +167,20 @@
     return X().rAct({k: "sqb", i: pick});
   };
   // Farm Defense Run hook (side-scroller prototype is built separately; its special move will reuse the squad burst data)
-  SQ.hooks = {farmRun: {status: "coming-soon", burstPack: function () { return SQ.pack({seed: 0}); }}};
+  // ---------- Farm Defense Run: energy cost, daily limits and capped loot (additive save field q.run only) ----------
+  D.RUN = {cost: 12, daily: 3, perRun: 900, dayCoins: 1800, dayShards: 3};
+  function dayKey() { var d = new Date(SQ.now()); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  SQ.runSt = function () { var q = SQ.st(), k = dayKey(); if (!q.run) q.run = {day: "", n: 0, coins: 0, sh: 0, tix: 0, tot: 0, best: 0, pend: 0}; if (q.run.day !== k) { q.run.day = k; q.run.n = 0; q.run.coins = 0; q.run.sh = 0; q.run.tix = 0; q.run.pend = 0; } return q.run; };
+  SQ.runLeft = function () { return Math.max(0, D.RUN.daily - SQ.runSt().n); };
+  SQ.runStart = function () { var r = SQ.runSt(); if (r.n >= D.RUN.daily) return "Daily run limit reached (" + D.RUN.daily + "/" + D.RUN.daily + "). Come back tomorrow."; if (!SQ.spend(D.RUN.cost)) return "Not enough energy: a run costs " + D.RUN.cost + "."; r.n++; r.pend = 1; save(); return ""; };
+  SQ.runReward = function (d) {
+    var r = SQ.runSt(), q = SQ.st(); if (!r.pend || !d) return ""; r.pend = 0;
+    var cl = function (v, a, b) { v = +v || 0; return Math.max(a, Math.min(b, v | 0)); }, win = !!d.win, rank = {S: 1, A: 1, B: 1, C: 1}[d.rank] ? d.rank : "C", score = cl(d.score, 0, 40000), resc = cl(d.rescues, 0, 8), kills = cl(d.kills, 0, 80);
+    var base = Math.round(score / 50) + resc * 25 + kills * 2; if (win) base += 120 + {S: 160, A: 90, B: 40, C: 0}[rank]; else base = Math.floor(base * 0.5);
+    var coins = Math.max(0, Math.min(base, D.RUN.perRun, D.RUN.dayCoins - r.coins)), ton = win ? (rank === "S" || rank === "A" ? 2 : 1) : 0, tix = win && r.tix < 1 ? 1 : 0, id = q.team.filter(function (t) { return t && q.own[t]; })[0], sh = 0;
+    if (id && win) sh = Math.max(0, Math.min(rank === "S" ? 2 : 1, D.RUN.dayShards - r.sh));
+    var txt = SQ.grant({coins: coins, ton: ton, tix: tix}); if (sh) { q.own[id].sh += sh; txt += (txt ? ", " : "") + "+" + sh + " " + D.U[id].nm + " shard" + (sh > 1 ? "s" : ""); }
+    r.coins += coins; r.sh += sh; r.tix += tix; r.tot += 1; r.best = Math.max(r.best || 0, score); save(); return txt || (r.coins >= D.RUN.dayCoins ? "no loot (daily caps reached)" : "no loot this run. Rescue animals and clear aliens to earn some");
+  };
+  SQ.hooks = {farmRun: {status: "live", page: "run.html", burstPack: function () { return SQ.pack({seed: 0}); }}};
 })();

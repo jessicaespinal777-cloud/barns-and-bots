@@ -24,9 +24,11 @@
     cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr); gx = 0; gy = Math.round((Hl - GW) / 2 - 18); SCACHE = {}; buildGround();
   };
   function img(n) { var i = IMG[n]; return i && i.complete && i.naturalWidth ? i : null; }
+  var SCN = 0;
   function cached(n, w, h) {
-    var k = n + "|" + w + "|" + h, c = SCACHE[k]; if (c) return c; var i = img(n); if (!i) return null;
-    var pw = Math.max(2, Math.round(w * sc * dpr)), ph = Math.max(2, Math.round(h * sc * dpr)); c = document.createElement("canvas"); c.width = pw; c.height = ph; var g = c.getContext("2d"); g.imageSmoothingQuality = "high";
+    var zq = uc.z * ((BB.FX && BB.FX.cam && BB.FX.cam.z > 1.002) ? BB.FX.cam.z : 1), zb = zq > 2.2 ? 2.5 : zq > 1.7 ? 2 : zq > 1.25 ? 1.5 : 1; // v0.10: zoom-bucketed sprite cache keeps close-ups crisp
+    var k = n + "|" + w + "|" + h + "|" + zb, c = SCACHE[k]; if (c) return c; var i = img(n); if (!i) return null; if (++SCN > 360) { SCACHE = {}; SCN = 0; }
+    var pw = Math.min(768, Math.max(2, Math.round(w * sc * dpr * zb))), ph = Math.min(768, Math.max(2, Math.round(h * sc * dpr * zb))); c = document.createElement("canvas"); c.width = pw; c.height = ph; var g = c.getContext("2d"); g.imageSmoothingQuality = "high";
     var s = i; // step-down for quality
     if (i.naturalWidth > pw * 2) { var m = document.createElement("canvas"); m.width = Math.round(i.naturalWidth / 2); m.height = Math.round(i.naturalHeight / 2); m.getContext("2d").drawImage(i, 0, 0, m.width, m.height); s = m; }
     g.drawImage(s, 0, 0, pw, ph); SCACHE[k] = c; return c;
@@ -192,18 +194,19 @@
       if (a && (b.t === "field" || b.t === "rig")) { cx.fillStyle = b.t === "field" ? "rgba(255,210,70,.35)" : "rgba(90,190,255,.35)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h - 3, w / 2, h / 3, 0, 0, 6.3); cx.fill(); }
       // shadow
       cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h - 1, w * 0.46, h * 0.22, 0, 0, 6.3); cx.fill();
-      spr(n, x + w / 2, y + h + 2, ww, cap, alpha);
+      var hd = a && b.t === "core" && FXo && FXo.heartDraw && opts && opts.raid && FXo.heartDraw(b, x, y, w, h, ww, cap, alpha);
+      if (!hd) spr(n, x + w / 2, y + h + 2, ww, cap, alpha);
       if (FXo) { FXo.bldOver(b, x, y, w, h); if (b.t === "tinker") FXo.tinkerOver(x, y, w, h); if (up && up.total) FXo.constructOver(b, x, y, w, h); }
       if (b.blind > 0) { cx.fillStyle = "rgba(20,16,36,.45)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h * 0.55, w * 0.42, h * 0.38, 0, 0, 6.3); cx.fill(); cx.fillStyle = "#46e6d2"; cx.font = "bold 12px sans-serif"; cx.textAlign = "center"; cx.fillText("?", x + w / 2, y + h * 0.62); }
       if (b.t === "lobber" || b.t === "blaster") { /* barrel aim handled via sprite only */ }
-      if (hit) { cx.globalCompositeOperation = "lighter"; spr(n, x + w / 2, y + h + 2, ww, cap, 0.45); cx.globalCompositeOperation = "source-over"; }
+      if (hit && !hd) { cx.globalCompositeOperation = "lighter"; spr(n, x + w / 2, y + h + 2, ww, cap, 0.45); cx.globalCompositeOperation = "source-over"; }
     }
     // collector bubble
     if (V.cb.upReady && V.mode === "base" && FXo && V.cb.upReady(b) && !(opts && opts.bubble && opts.bubble(b))) FXo.upBadge(x, y, w);
     if (opts && opts.bubble) { var st = opts.bubble(b); if (st) { if (FXo) FXo.homeReady(x, y, w, d.res); var bob = Math.sin(V.t * 4 + b.x) * 1.5; spr(d.res === "c" ? "i_coin" : "i_scrap", x + w / 2, y - 3 + bob, 13, 13, 1); } }
   }
   function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
-  function hpBar(x, y, w, f, col) { cx.fillStyle = "rgba(0,0,0,.65)"; cx.fillRect(x - w / 2 - 1, y - 1, w + 2, 4.5); cx.fillStyle = col; cx.fillRect(x - w / 2, y, w * Math.max(0, f), 2.5); }
+  function hpBar(x, y, w, f, col, key) { if (key && BB.FX && BB.FX.bar2) return BB.FX.bar2(cx, x, y, w, f, col, key); cx.fillStyle = "rgba(0,0,0,.65)"; cx.fillRect(x - w / 2 - 1, y - 1, w + 2, 4.5); cx.fillStyle = col; cx.fillRect(x - w / 2, y, w * Math.max(0, f), 2.5); }
 
   // ---------- base mode ----------
   function wallLookup() { var m = {}; (V.base || []).forEach(function (b) { if (b.t === "wall") m[b.x + "," + b.y] = 1; }); return function (x, y) { return m[x + "," + y]; }; }
@@ -259,7 +262,8 @@
     // lane heat (after a raid or replay)
     if (V.showHeat && sim.heat) { var mxh = 0, hi; for (hi = 0; hi < sim.heat.length; hi++) if (sim.heat[hi] > mxh) mxh = sim.heat[hi]; if (mxh > 0) for (var hy = 0; hy < N; hy++) for (var hx = 0; hx < N; hx++) { var hv = sim.heat[hy * N + hx] / mxh; if (hv > 0.06) { cx.fillStyle = "rgba(" + (hv > 0.5 ? "255,90,40" : "255,200,60") + "," + (0.12 + 0.4 * hv).toFixed(2) + ")"; cx.fillRect(gx + hx * T, gy + hy * T, T, T); } } }
     // hp bars (buildings)
-    live.forEach(function (b) { if (b.hp < b.mx && b.kind !== "trap") { if (b.kind === "wall" && b.hp > b.mx * 0.7) return; hpBar(gx + b.cx * T, gy + b.y * T - 2, b.kind === "wall" ? 9 : b.w * T * 0.8, b.hp / b.mx, "#6aff6a"); } });
+    live.forEach(function (b) { if (b.hp < b.mx && b.kind !== "trap") { if (b.kind === "wall" && b.hp > b.mx * 0.7) return; hpBar(gx + b.cx * T, gy + b.y * T - 2, b.kind === "wall" ? 9 : b.w * T * 0.8, b.hp / b.mx, "#6aff6a", b); } });
+    if (BB.RIG && BB.RIG.drawDecals) BB.RIG.drawDecals(cx);
     // units
     var us = sim.tr.concat(sim.df).sort(function (a, b) { return a.y - b.y; });
     us.forEach(function (u) { drawUnit(u); });

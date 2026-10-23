@@ -1,4 +1,4 @@
-# Barns & Bots — playable prototype v0.9.0
+# Barns & Bots — playable prototype v0.10.0
 
 Build your farm. Defend your herd. A mobile-first game prototype with a base-building and raid loop built on genre-standard mechanics (base building, builder timers, resource collectors, raids, 3 stars, trophies, leagues, co-op crew), plus the original hero-mech action battles and a 3-phase boss duel (Vorlax). Graphics were upgraded: generated sprites, juice, HUD and results screens.
 
@@ -160,7 +160,45 @@ Jessica asked for more action, each part of a bot moving on its own and visibly 
 - At the lowest hive level the interior is too small for 3x3 vaults, so they sit just outside the ring.
 - Not tested on a real phone or by human players. Headless Chrome at 390x844 gives about 50-57 fps with 100+ live effects; real devices may differ.
 - Raid aliens and troops have no separate arms. Squad hero part art is shared across 14 heroes.
-- The Farm Defense Run proof of concept uses the same rig (see poc/); only Scarecrow-X is wired there, there is no hive layout in it.
+- The Farm Defense Run proof of concept uses the same rig (see poc/); only Scarecrow-X is wired there, there is no hive layout in it. (v0.10 ships the Run in the game: see below.)
+
+## What is new in v0.10.0 (action detail pass + Farm Defense Run)
+Jessica said the details in the actions were missing. This build adds part-based alien rigs, clear attack phases, a following camera, combat readability and a playable side-scrolling run. Everything in the action layer is cosmetic only: the raid simulation stays deterministic, replays match, and v0.9 saves load unchanged.
+
+### Raid camera
+- Auto-zoom (default): the raid view eases in on the busiest live fight and follows it (about 1.55x), then eases back out. A CAM button cycles AUTO, CLOSE (about 2.25x, characters large enough to read limbs and weapons on a 390x844 phone) and OFF. Pinch and drag still work at any time and temporarily take over.
+- Zoom is a canvas transform, so the vector rigs stay crisp when zoomed.
+- Kill-cam: a short slow-motion beat when the Hive Heart breaks and on a hero finisher. Camera shake is capped and skipped in calm mode.
+
+### Part-based rigs (js/rig2.js)
+- True part rigs (separate head, jaw, torso, limbs, claws, tails, plates, weapon) built procedurally, with anticipation, strike and recover phases, per-unit random phase offsets so crowds never animate in sync, hit tint on the struck part, and ragdoll-style part separation on death with a ground scorch or acid decal.
+- Rigged raid aliens: Snatcher, Stinger, Raker, Blinker and Shard variants, the Bastion and armoured Sentinel types, the Slinger, Bruiser, Roller and Drone kinds, and the Hive Heart (pulsing core, tendrils, armour plates that crack as HP drops).
+- Per-part damage states as HP falls: cracks, dents, sparks, smoke and missing plates.
+- Attack styles: spit, claw swipe, tail whip, acid lob, charge, sting thrust and slam, each with a wind-up and follow-through.
+- Bullets and effects: tracer, plasma, rocket with smoke trail and arcing lob projectiles; distinct muzzle flash shapes; pooled smoke puffs; bouncing shell casings; impact decals; a 30 to 50 ms local hit-stop on heavy hits.
+- Buildings: visible damage stages (cracks, debris, scorch, smoke, embers) and a collapse remnant. Turret facing is quantised to 16 steps.
+
+### Combat readability
+- Floating damage numbers, with CRIT shown on unusually large burst hits (a classification of the hit, not a separate damage roll), plus WEAK POINT and ARMOR BREAK callouts, rate limited so they do not spam.
+- Health bars are hidden at full HP, appear on the first damage, are thick and outlined, segmented, with a lag segment that drains behind the real value. Target lines and aim indicators on the focused enemy.
+- Kill-feed strip (top of the raid) showing who hit or destroyed what.
+- Reduced flashing (Settings, calm) tones down or skips flashes, shake, sparks and slow-motion.
+
+### Farm Defense Run (run.html, RUN tab in Squad HQ)
+- A side-scrolling run-and-gun across the farm lane against alien waves and a mini-boss, with a hop-in tractor tank, rescue pickups (animals and farmhands), weapon drops, grenades, burst special and a hero swap. Scarecrow-X and the squad heroes use the same rig system; aliens on the lane (trooper, charger, crawler, skiff) are part rigs with segmented health bars, callouts, hit-stop and a kill feed.
+- It is an embedded same-origin page (run.html in an iframe), not a native module port. Loot returns to the game by postMessage and is clamped by the game (never by the page): a run costs 12 energy, 3 rewarded runs per day, at most 900 coins per run and 1800 per day, tonic, one ticket for the first win each day, and at most 3 hero shards per day for your lead hero. Leaving early forfeits the energy. The only save change is an additive q.run record inside the existing squad save.
+- Works offline (run.html is in the service worker cache).
+
+### What is and is not rigged in v0.10 (honest list)
+- True part rigs (raid): the alien raiders, Sentinel/Bastion types and Hive Heart listed above, and the main raid troop kinds. No band-sliced sprites were drawn in the verified raid test (sliced count 0).
+- Heroes: Scarecrow-X and Baleguard unique art parts; the other 14 heroes use the shared chibi skeleton with palettes.
+- Farm Run: hero, trooper, charger, crawler and skiff are rigged. The Vorlax Walker mini-boss, the tractor tank, props and rescue captives are still drawn directly on canvas (animated, but not part rigs).
+- Not built: hound and badger troop rigs, a landing/drop sequence in raids, element-advantage damage numbers (the simulation has no such multiplier, so none are shown).
+
+### v0.10 known gaps (honest list)
+- Not tested on a real phone or by human players. Headless Chrome at 390x844 is the only measurement.
+- Timing values for hit-stop, shake and slow-motion are design targets tuned by eye, not measured from other games.
+- Farm Run balance is a first pass.
 
 ## Honest depth assessment
 The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 16 building types (incl. fences), 4 troop types, 4 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
@@ -174,6 +212,7 @@ The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) i
 - v0.6 NAMES ARE WORKING LABELS pending trademark clearance: Turbo Orb, Bubble Orb, Pulse Orb, Loot Orb, Spark Orb, Frenzy, Overdrive, Rampage, Power Surge, Murder of Crows (Scarecrow-X ultimate). All music and sound effects are synthesized in code at runtime (no samples, no third-party audio). Effects and animations are original procedural drawing.
 - v0.7 NAMES ARE WORKING LABELS pending trademark clearance: Scare the Crows, Scarecrow Legend (minigame result), Perfect deploy, Rally flag, March path, Wind-up crank, Beat pad, Dodge/Dash, Simple controls. Gestures are generic touch input conventions (tap, drag, hold, swipe, pinch); no art, audio or text came from another game.
 - v0.9 NAMES ARE WORKING LABELS pending trademark clearance: Hive Heart, Nectar Pod, Scrap Nest, Nectar Vault, Chitin Vault, Spitter Nest, Barb Spire, Spore Lobber, Sting Bloom, Spore Mine, Brood Pit, Acid Barricade, Gale Maw, Shock Spire, Rattle Coil, Hook Stalk, Ram Horn, Mist Gland, Web Snare, Burst Pod, Egg Cache, Pulse Thorn, Sentinel. Rig art (Scarecrow-X, Baleguard) is AI-generated and cut into parts; the same AI-art ownership caveat applies. The monsters-defend-a-hive layout is a genre-standard idea (attack a central base ringed by defenses), no third-party names or art.
+- v0.10 NAMES ARE WORKING LABELS pending trademark clearance: Farm Defense Run, Vorlax Walker, tractor tank, Weak Point and Armor Break callouts, kill-cam. The raid action layer and run use original procedural art and genre-standard mechanics (side-scrolling shooter, hop-in vehicle, rescue pickups, health bars, hit-stop); no third-party art, sounds or names.
 - v0.8 NAMES ARE WORKING LABELS pending trademark clearance: the 16 unit names (Bale Guard, Sun Seed, Gust Mill, Rime Planter, Sawback, Herd Master, Crop Duster, Thunder Ram, Husk Reaper, Harvest Ram, Furrow Dozer, Silo Titan, Golden Harvest, Nova, Scarecrow-X, Coil Walker), burst names, the elements Sun/Storm/Soil/Frost/Spark, Burst, Full Burst, Chain, Leader skill, Summon, Pity, Trials, Codex, Farm Defense Run. The element wheel, charge meters, team of six, pity counters and timers are generic genre conventions; no names, art, text or numbers were taken from any other game. The cut-in and reveal art is AI-generated (see the ownership note above); keep prompts and tool terms on record.\n- Summon odds are displayed in-game and no real-money purchase exists. If real money is ever added, check platform and national rules on loot-box odds disclosure, age gating and spending limits first.\n- This is a prototype, not legal advice.
 
 Plain HTML/CSS/JS. No build step, no libraries, no CDN, no accounts, $0.
@@ -209,7 +248,7 @@ Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 ev
 Google Play needs a one-time US$25 developer account. Check AI-art ownership (see LEGAL-NOTES) and store policies first.
 
 ## Files
-index.html, manifest.webmanifest, sw.js (cache bb-proto-v11; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing (hive ground), rig_data.js + rig.js v0.9 skeleton animation and effect pools (atlas in assets/rig/), cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, sq_data.js and sq_core.js v0.8 squad data and logic (roster, summon, jobs, trials, missions, codex), sq_cut.js cut-in and reveal overlays, sq_ui.js squad hub and raid bar, assets/sq/ (17 webp portraits), cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
+index.html, run.html (v0.10 Farm Defense Run page), manifest.webmanifest, sw.js (cache bb-proto-v12; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing (hive ground), rig2.js (v0.10 procedural alien rigs and attack/impact effects), cc_act.js (v0.10 raid action layer: camera, kill feed, callouts, health bars), rig_data.js + rig.js v0.9 skeleton animation and effect pools (atlas in assets/rig/), cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, sq_data.js and sq_core.js v0.8 squad data and logic (roster, summon, jobs, trials, missions, codex), sq_cut.js cut-in and reveal overlays, sq_ui.js squad hub and raid bar, assets/sq/ (17 webp portraits), cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
 
 ## Not built yet
 Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.
