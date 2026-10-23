@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#161a33">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Barns &amp; Bots (prototype)</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- BASE (ranch + raids) -->
+  <section id="base" class="screen">
+    <canvas id="bcv"></canvas>
+    <header class="b-top" id="b-top">
+      <button id="b-gear" class="gear" aria-label="Settings">&#9881;</button>
+      <div class="b-league" id="b-league"></div>
+      <div class="b-res">
+        <div class="rs"><i class="ico coin"></i><b id="bv-coins">0</b><div class="cap"><i id="bc-coins"></i></div></div>
+        <div class="rs"><i class="ico salv"></i><b id="bv-salv">0</b><div class="cap"><i id="bc-salv"></i></div></div>
+        <div class="rs g"><i class="ico gem"></i><b id="bv-gems">0</b></div>
+      </div>
+      <div class="b-sub"><span id="b-tink"></span><span id="b-shield" class="shield"></span></div>
+    </header>
+    <div id="b-queue" class="b-queue"></div>
+    <div id="r-top" class="r-top">
+      <div class="r-row"><div id="r-timer" class="r-timer">3:00</div><div id="r-stars" class="r-stars"></div><div id="r-pct" class="r-pct">0%</div></div>
+      <div class="r-marks"><span id="r-star1">50%</span><span id="r-star2">CORE</span><span id="r-star3">100%</span></div>
+      <div id="r-loot" class="r-loot"></div>
+      <button id="r-end" class="btn sec r-end">END BATTLE</button><button id="r-speed" class="btn sec r-speed">x1</button>
+    </div>
+    <div id="r-scout" class="r-scout hidden"></div>
+    <div id="r-bar" class="r-bar"></div>
+    <div id="b-bottom" class="b-bottom">
+      <div id="b-goal" class="b-goal"></div>
+      <div id="b-sel" class="b-sel hidden"></div>
+      <div class="b-act">
+        <button id="btn-attack" class="attack-btn pulse">ATTACK <span>&#9876;</span></button>
+        <button id="b-log" class="side-btn">LOG<em id="log-badge" class="badge"></em></button>
+        <button id="b-daily" class="side-btn">GIFT</button>
+      </div>
+    </div>
+    <div id="b-panel" class="b-panel hidden"></div>
+    <nav class="b-nav" id="b-nav">
+      <button data-p="build"><i class="ti t-farm"></i><span>BUILD</span></button>
+      <button data-p="army"><i class="ti t-mech"></i><span>ARMY</span></button>
+      <button data-p="crew"><i class="ti t-map"></i><span>CREW</span></button>
+      <button data-p="tasks" id="nav-tasks"><i class="ti t-shop"></i><span>TASKS</span></button>
+      <button id="btn-hero"><i class="ti t-mech"></i><span>HERO</span></button>
+    </nav>
+  </section>
+
+  <!-- HERO screen (old home) -->
+  <section id="home" class="screen">
+    <div class="home-bg"></div>
+    <div class="home-fade"></div>
+    <header class="topbar">
+      <button id="btn-gear" class="gear" aria-label="Settings">&#9881;</button>
+      <button id="btn-base" class="to-base">&#9664; RANCH</button>
+      <div class="logo"><span class="l1">BARNS</span><span class="l2">&amp; BOTS</span></div>
+      <div class="counters">
+        <div class="counter" id="c-coins"><i class="ico coin"></i><b id="v-coins">0</b><button class="plus" data-go="shop">+</button></div>
+        <div class="counter" id="c-gems"><i class="ico gem"></i><b id="v-gems">0</b><button class="plus" data-go="shop">+</button></div>
+      </div>
+      <div class="counters sub">
+        <div class="counter small"><i class="ico salv"></i><b id="v-salv">0</b></div>
+        <div class="counter small"><i class="ico bp"></i><b id="v-bp">0</b></div>
+      </div>
+    </header>
+    <div id="nova" class="nova"><div class="nova-face">N</div><div class="nova-text" id="nova-text"></div></div>
+
+    <div class="home-bottom" id="home-bottom">
+      <div class="goal" id="goal"></div>
+      <div class="mech-card" id="mech-card"></div>
+      <div class="defend">&mdash; DEFEND THE HERD &mdash;</div>
+      <button id="btn-battle" class="battle-btn pulse">BATTLE <span>&#9654;</span></button>
+    </div>
+
+    <div id="panel" class="panel hidden"></div>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="farm" class="active"><i class="ti t-farm"></i><span>FARM</span></button>
+      <button data-tab="mechs"><i class="ti t-mech"></i><span>MECHS</span></button>
+      <button data-tab="map"><i class="ti t-map"></i><span>MAP</span></button>
+      <button data-tab="shop"><i class="ti t-shop"></i><span>SHOP</span></button>
+    </nav>
+  </section>
+
+  <!-- BATTLE -->
+  <section id="battle" class="screen">
+    <canvas id="cv"></canvas>
+  </section>
+
+  <!-- overlays -->
+  <div id="modal" class="modal hidden"></div>
+  <div id="toast" class="toast"></div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/cc_data.js"></script>
+<script src="js/cc_gen.js"></script>
+<script src="js/cc_sim.js"></script>
+<script src="js/cc_view.js"></script>
+<script src="js/cc_ui.js"></script>
+<script src="js/cc_panels.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
