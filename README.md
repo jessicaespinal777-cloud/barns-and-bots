@@ -1,4 +1,4 @@
-# Barns & Bots — playable prototype v0.7.0
+# Barns & Bots — playable prototype v0.8.0
 
 Build your farm. Defend your herd. A mobile-first game prototype with a base-building and raid loop built on genre-standard mechanics (base building, builder timers, resource collectors, raids, 3 stars, trophies, leagues, co-op crew), plus the original hero-mech action battles and a 3-phase boss duel (Vorlax). Graphics were upgraded: generated sprites, juice, HUD and results screens.
 
@@ -110,6 +110,30 @@ Settings > Simple controls turns on auto-driving in raids (one-handed or low-eff
 - The tutorial arrow pointing at ATTACK can overlap the selection bar for a moment on the very first session.
 - Gesture and minigame names are working labels (see LEGAL-NOTES). Earlier deferred lists still apply.
 
+## What is new in v0.8.0 (squad, burst and summon layer)
+A collection-and-team loop layered on the existing raid game, built on genre-standard mechanics (collectible roster, element wheel, team of six, auto-battle with charge meters, chained bursts, summon with pity, fusion timers, stamina-gated trials, missions, codex). All names, art and numbers are original.
+- **Squad roster:** 16 original heroes/mechs (5 at 3 stars, 6 at 4 stars, 5 at 5 stars) across 5 elements: Sun, Storm, Soil, Frost, Spark. Advantage wheel: Sun > Storm > Soil > Frost > Spark > Sun (x1.5 for the attacker, x0.7 for the defender, x1 otherwise). Levels, star rarity, per-unit power, limit-break ranks.
+- **Team builder:** 6 slots, roster sheet, leader skill (slot 1) that adds attack, HP, charge speed or burst power, capped (25% / 25% / 30% / 20%).
+- **Auto-battle:** a raid AUTO button cycles OFF / AUTO / AUTO+. AUTO deploys, casts and surges for you and you tap the bursts; AUTO+ also fires bursts. Each unit has a charge meter filled by damage dealt, kills and time. The setting persists.
+- **Burst chains:** tap ready units within a 2.6 s window to chain. Four or more chained bursts with 3+ distinct elements make a FULL burst with a bigger bonus. Bursts are recorded in the raid replay (action sqb), and replays rebuild the squad from the recorded pack, so replays stay deterministic (det8 test: 7 missions, live equals replay, with 60 burst actions each).
+- **Cut-ins and reveals:** full-screen anime-style 2D cut-in for every burst (diagonal art slab, speed lines, name band) and a hero reveal with orb, rays, card and a 10-pull summary. 17 AI-generated webp portraits and backdrops (about 1.1 MB total). Reduced flashing (Settings, Calm) swaps these for fade-only versions with no shake or confetti.
+- **Summon:** odds are always visible (3 star 72%, 4 star 24%, 5 star 4%), with a pity counter (soft pity from pull 30, guaranteed 5 star at pull 40, a 10-pull guarantees at least one 4 star or better). Seeded and saved, so pulls are reproducible. Paid with tickets (earned from trials, missions, codex) or mock gems. There is no real-money loot box and no payment of any kind.
+- **Fuse, evolve, limit-break:** fuse spare parts into a unit for XP (20 minutes per part), evolve at the level cap (30 / 45 / 60 for 3 / 4 / 5 stars) using element cores plus coins (24 h to reach 4 stars, 72 h to reach 5 stars), and limit-break 5-star units up to rank 10 using duplicate shards (12 h x rank, so 12 to 120 h per step). Jobs run in 2 bays with real timers, which gives a multi-week to multi-year progression curve. A mock gem speed-up exists.
+- **Trials:** 5 elements x 4 tiers, energy-gated (stamina refills in real time), first-clear rewards (tickets, gems, materials), half loot, no trophies. Higher tiers unlock with your Core level.
+- **Missions and codex:** daily and weekly missions with ticket/gem/material rewards; a unit codex with completion milestones.
+- **Farm Defense Run:** menu tab labeled "coming soon" plus a code hook (BB.SQ.hooks.farmRun with a burstPack) so the later side-scroller can reuse the same squad and burst specials. Nothing of it is built in this version (it is being prototyped separately).
+- **Compatibility:** v0.7 saves load unchanged (the squad save block is created lazily and a starter pack is granted). Cache is bb-proto-v10.
+- **Test hooks:** BB.SQ (st(), warp(ms) to skip job timers, summon helpers), BB.SQUI, BB.CUT (burst, reveal, hide, active), BB.SQD (data tables).
+
+### v0.8 deferred and known gaps (honest list)
+- Squad units are a command layer (meters, bursts, buffs), not unit sprites fighting on the map. On-map hero sprites are not built.
+- Farm Defense Run (the side-scroller) is NOT in this build; only the menu entry and hook exist.
+- Summon, fusion and the speed-up use mock gems and tickets. There are no real payments, and the shop disclaimer still applies. All economy numbers (odds, timers, costs, energy) are first guesses with no player data and need tuning.
+- Energy uses the real clock; the time-skip hook (SQ.warp) only moves job timers and is a test hook.
+- 16 heroes is a small roster; each unit has one portrait that is reused for its cut-in and reveal (no extra poses or animation frames). Art quality varies, and AI art can show small anatomy or text artefacts.
+- Chain and burst timing was verified by script and in headless Chrome at 390x844 (about 57-60 fps). It was not tested on a real phone or by human players, and the screens have not had an accessibility review.
+- No voice acting; cut-in sound is synthesized. Earlier deferred lists still apply.
+
 ## Honest depth assessment
 The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 16 building types (incl. fences), 4 troop types, 4 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
 
@@ -121,7 +145,7 @@ The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) i
 - v0.5 NAMES ARE WORKING LABELS pending trademark clearance: Rivet Chick, Scrap Sow, Rusthound, Wrenchling, Clod Mule, Shearspinner, Burrow Badger, Kite Kestrel, Seed Fan, Stormpost, Haywire Coil, Harpoon Crane, Fence Driver, Chaff Shroud, Snare Reel, Chaff Mine, Decoy Cache, Pulse Stake, Ground Clamp, Fence Stitch, Fog Veil and the alien names (Raker, Blink, Bastion, Shard). None has been searched. The v0.5 design came from a mechanics-only study; no names, art or text were copied. Search each name before public use and rename any that collide.
 - v0.6 NAMES ARE WORKING LABELS pending trademark clearance: Turbo Orb, Bubble Orb, Pulse Orb, Loot Orb, Spark Orb, Frenzy, Overdrive, Rampage, Power Surge, Murder of Crows (Scarecrow-X ultimate). All music and sound effects are synthesized in code at runtime (no samples, no third-party audio). Effects and animations are original procedural drawing.
 - v0.7 NAMES ARE WORKING LABELS pending trademark clearance: Scare the Crows, Scarecrow Legend (minigame result), Perfect deploy, Rally flag, March path, Wind-up crank, Beat pad, Dodge/Dash, Simple controls. Gestures are generic touch input conventions (tap, drag, hold, swipe, pinch); no art, audio or text came from another game.
-- This is a prototype, not legal advice.
+- v0.8 NAMES ARE WORKING LABELS pending trademark clearance: the 16 unit names (Bale Guard, Sun Seed, Gust Mill, Rime Planter, Sawback, Herd Master, Crop Duster, Thunder Ram, Husk Reaper, Harvest Ram, Furrow Dozer, Silo Titan, Golden Harvest, Nova, Scarecrow-X, Coil Walker), burst names, the elements Sun/Storm/Soil/Frost/Spark, Burst, Full Burst, Chain, Leader skill, Summon, Pity, Trials, Codex, Farm Defense Run. The element wheel, charge meters, team of six, pity counters and timers are generic genre conventions; no names, art, text or numbers were taken from any other game. The cut-in and reveal art is AI-generated (see the ownership note above); keep prompts and tool terms on record.\n- Summon odds are displayed in-game and no real-money purchase exists. If real money is ever added, check platform and national rules on loot-box odds disclosure, age gating and spending limits first.\n- This is a prototype, not legal advice.
 
 Plain HTML/CSS/JS. No build step, no libraries, no CDN, no accounts, $0.
 
@@ -156,7 +180,7 @@ Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 ev
 Google Play needs a one-time US$25 developer account. Check AI-art ownership (see LEGAL-NOTES) and store policies first.
 
 ## Files
-index.html, manifest.webmanifest, sw.js (cache bb-proto-v9; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
+index.html, manifest.webmanifest, sw.js (cache bb-proto-v10; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_touch.js v0.7 touch layer (gestures, steering, aiming, crank, hints), cc_mini.js Scare the Crows minigame, sq_data.js and sq_core.js v0.8 squad data and logic (roster, summon, jobs, trials, missions, codex), sq_cut.js cut-in and reveal overlays, sq_ui.js squad hub and raid bar, assets/sq/ (17 webp portraits), cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
 
 ## Not built yet
 Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.

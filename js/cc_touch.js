@@ -320,7 +320,7 @@
 
   // ---------- simple controls: auto-battle driver using only recorded primitives ----------
   function simpleDrive(r, dt) {
-    var s = r.sim; autoT -= dt; if (autoT > 0) return; autoT = 0.5;
+    var s = r.sim; autoT -= dt; if (autoT > 0) return; autoT = 0.5; if ((r.auto === 2 || simple()) && BB.SQ && BB.SQ.autoBurst) BB.SQ.autoBurst(r);
     var h = s.heroU(), defs = [], i, cxs = 0, cys = 0; s.bld.forEach(function (b) { if (!b.dead && b.kind === "def") { defs.push(b); cxs += b.cx; cys += b.cy; } });
     var tx = defs.length ? cxs / defs.length : N / 2, ty = defs.length ? cys / defs.length : N / 2;
     if (!h && !r.hero && cc().heroHp > 0.2 && !r.noHero) { r.sel = {t: "h", k: "hero"}; edgeDeploy(r, tx, ty, 0); return; }
@@ -366,7 +366,7 @@
     var bp = lr && lr.sim.ps > 0 && !simple();
     if (bp) { var ph = ((lr.sim.t - lr.sim.psT) % 0.5) / 0.5, off = Math.min(ph, 1 - ph) * 0.5; beatEl.style.display = "flex"; beatEl.firstChild.style.transform = "scale(" + (1 + (1 - ph) * 1.1).toFixed(3) + ")"; beatEl.className = (off <= 0.15 ? "good" : ""); TCH.hint("beat", "Power Surge: tap the pad on the beat for a bigger surge", 4200); }
     else beatEl.style.display = "none";
-    if (lr && simple()) simpleDrive(lr, dt);
+    if (lr && (simple() || lr.auto > 0)) simpleDrive(lr, dt);
     sensorStep(dt);
   };
 

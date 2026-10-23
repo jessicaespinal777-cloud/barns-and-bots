@@ -106,7 +106,7 @@
   var ZC = {clamp: "#a8e8ff", stitch: "#9be26b", veil: "#c9b8ff", snare: "#d8c080", mine: "#ff9a3a", cache: "#ffd35a", stake: "#5af0ff", fuse: "#ffb040", surge: "#ffd35a"};
   function handleEvents(ev) {
     for (var i = 0; i < ev.length; i++) {
-      var e = ev[i]; if (BB.TCH && BB.TCH.ev(e)) continue; if (BB.FX && BB.FX.ev(e)) continue;
+      var e = ev[i]; if (e.k === "sqb" && BB.SQUI && BB.SQUI.ev(e)) continue; if (BB.TCH && BB.TCH.ev(e)) continue; if (BB.FX && BB.FX.ev(e)) continue;
       if (e.k === "shot") { if (V.cb.sfx) V.cb.sfx("dshot"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
       else if (e.k === "bolt") { if (V.cb.sfx) V.cb.sfx(e.hid === "scx" ? "rail" : "pew"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
       else if (e.k === "crows") { if (V.cb.sfx) V.cb.sfx("crows"); (e.t || []).forEach(function (p) { V.puff(p[0], p[1], 12, "#2a2438", 70, 0.8); V.ring(p[0], p[1], 1.4, "#46e6d2"); }); V.shake = Math.max(V.shake, 0.3); }

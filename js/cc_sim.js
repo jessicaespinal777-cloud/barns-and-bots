@@ -60,6 +60,9 @@
     sim.occ = occ;
     // v0.6 juice state (all deterministic: seeded PRNG, only advanced by sim events)
     sim.fxr = C.rng((base.seed || 1) + 7777); sim.pus = []; sim.puN = 0; sim.charge = 0; sim.ps = 0; sim.cmb = {n: 0, last: -99, tier: 0, best: 0}; sim.bonus = {c: 0, s: 0}; sim.crits = 0; sim.totLC = 0; sim.totLS = 0; sim.totHP = 0; sim.puGot = 0;
+    // v0.8 squad layer (command layer: charge meters, chained bursts, leader skill). Pack comes only from opt.squad so replays are exact.
+    sim.sq = null; sim.lead = null; sim.bel = -1; sim.bch = {n: 0, last: -99, els: 0, best: 0}; sim.sqN = 0;
+    if (opt.squad && opt.squad.u && opt.squad.u.length) { sim.sq = opt.squad.u.map(function (q) { return {id: q.id, el: q.el, cr: q.cr || 2.5, bt: q.bt || q.el, pw: q.pw || 1, ch: q.ch0 || 0, used: 0}; }); sim.lead = opt.squad.lead || {atk: 0, hp: 0, chg: 0, bp: 0}; sim.bel = opt.squad.bel === undefined ? -1 : opt.squad.bel; }
     base.bld.forEach(function (b, i) {
       var d = C.B[b.t], l = b.l || 1, m = C.LV[l] || 1;
       var e = {i: i, t: b.t, x: b.x, y: b.y, w: d.w, h: d.h, l: l, kind: d.kind, mx: d.hp * m, hp: d.hp * m, dead: false, cx: b.x + d.w / 2, cy: b.y + d.h / 2, lc: b.lc || 0, ls: b.ls || 0, lcL: b.lc || 0, lsL: b.ls || 0, cool: 0, tgt: null, hit: 0};
@@ -103,6 +106,7 @@
         else if (kind === "decoy") s = {hp: 500, dps: 0, rng: 0, sp: 0, pref: "any", sz: 22, art: "decoy", decoy: 1};
         else { var U = C.U[kind], L = sim.ulv[kind] || 1; s = {hp: U.hp * (1 + 0.25 * (L - 1)), dps: U.dps * (1 + 0.2 * (L - 1)), rng: U.rng, sp: U.sp, pref: U.pref, fly: U.fly, sz: U.sz, art: U.art, boom: U.boom, brad: U.brad, heal: U.heal ? U.heal * (1 + 0.2 * (L - 1)) : 0, hrate: U.hrate ? U.hrate * (1 + 0.15 * (L - 1)) : 0, lootm: U.lootm, lob: U.lob, spl: U.spl, cone: U.cone, hop: U.hop}; }
       } else { var A = AUNITS[kind] || C.U[kind]; var LL = o.lv || 1; s = {hp: A.hp * (1 + 0.25 * (LL - 1)), dps: A.dps * (1 + 0.2 * (LL - 1)), rng: A.rng, sp: A.sp, pref: "any", fly: A.fly, sz: A.sz, art: A.art}; }
+      if (team === "a" && sim.lead && !s.decoy) { s.hp *= 1 + (sim.lead.hp || 0); s.dps *= 1 + (sim.lead.atk || 0); if (s.mxh) s.mxh *= 1 + (sim.lead.hp || 0); }
       var u = {id: sim.uid++, k: kind, team: team, x: x, y: y, hp: s.hp, mx: s.mxh || s.hp, dps: s.dps, rng: s.rng, sp: s.sp, pref: s.pref, fly: s.fly || 0, sz: s.sz, art: s.art, boom: s.boom, brad: s.brad, heal: s.heal || 0, hrate: s.hrate || 0, lootm: s.lootm || 0, lob: s.lob || 0, spl: s.spl || 0, cone: s.cone || 0, hop: s.hop || 0, hopCd: 0, dig: 0, stun: 0, root: 0, slow: 0, veil: 0, hmul: 1, hero: s.hero, hid: s.hid, decoy: s.decoy,
         tgt: null, path: null, pi: 0, blk: null, dead: false, bst: 0, hit: 0, ab: 0, face: 1, wob: sim.uid * 0.7, aim: 0};
       if (team === "a") sim.tr.push(u); else sim.df.push(u);
@@ -158,7 +162,7 @@
       var crit = false;
       if (src && src.team === "a" && b.kind !== "trap") { if (src.critCd > 0) { } else if (sim.fxr() < 0.045) { amt *= 6; src.critCd = 3.5; crit = true; sim.crits++; } }
       var d = Math.min(amt, b.hp); b.hp -= amt; b.hit = 0.12;
-      if (src && src.team === "a" && b.kind !== "trap") { sim.charge = Math.min(100, sim.charge + d / (sim.totHP || 1) * 100 * 2.6); b.dacc = (b.dacc || 0) + d; if (crit || sim.t - (b.dlast || -9) >= 0.5) { sim.ev.push({k: "dmg", x: b.cx, y: b.cy, a: Math.round(b.dacc), crit: crit ? 1 : 0, w: b.w}); b.dacc = 0; b.dlast = sim.t; } }
+      if (src && src.team === "a" && b.kind !== "trap") { sim.charge = Math.min(100, sim.charge + d / (sim.totHP || 1) * 100 * 2.6); if (sim.sq) sqGain(d / (sim.totHP || 1) * 100); b.dacc = (b.dacc || 0) + d; if (crit || sim.t - (b.dlast || -9) >= 0.5) { sim.ev.push({k: "dmg", x: b.cx, y: b.cy, a: Math.round(b.dacc), crit: crit ? 1 : 0, w: b.w}); b.dacc = 0; b.dlast = sim.t; } }
       if (src !== undefined && b.kind !== "wall") { var f = d / b.mx, lm = (src && src.lootm) || 1; if (b.lcL > 0) { var g = Math.min(b.lcL, b.lc * f * lm); b.lcL -= g; sim.loot.c += g; } if (b.lsL > 0) { var g2 = Math.min(b.lsL, b.ls * f * lm); b.lsL -= g2; sim.loot.s += g2; } }
       if (b.hp <= 0) killB(b);
     }
@@ -175,7 +179,7 @@
     function dmgU(u, amt, srcTeam) {
       if (u.dead) return; if (u.inv > 0 && srcTeam === "d") return; if (u.shld > 0) amt *= 0.35; if (u.chan > 0) amt *= 0.6; u.hp -= amt; u.hit = 0.1;
       if (u.team === "a") { u.dacc = (u.dacc || 0) + amt; if (sim.t - (u.dlast || -9) >= 0.6 && u.dacc >= 1) { sim.ev.push({k: "dmg", x: u.x, y: u.y, a: Math.round(u.dacc), u: 1}); u.dacc = 0; u.dlast = sim.t; } }
-      if (u.hp <= 0) { u.dead = true; sim.ev.push({k: "udead", x: u.x, y: u.y, a: u.art, team: u.team}); if (u.team === "d") { comboHit(u.x, u.y, 0); sim.charge = Math.min(100, sim.charge + 1.2); } }
+      if (u.hp <= 0) { u.dead = true; sim.ev.push({k: "udead", x: u.x, y: u.y, a: u.art, team: u.team}); if (u.team === "d") { comboHit(u.x, u.y, 0); sim.charge = Math.min(100, sim.charge + 1.2); if (sim.sq) sqGain(0.6); } }
     }
     function comboHit(x, y, big) {
       var c = sim.cmb; if (sim.t - c.last > 4) c.n = 0; c.n++; c.last = sim.t; if (c.n > c.best) c.best = c.n;
@@ -207,6 +211,30 @@
       sim.bld.forEach(function (b) { if (b.dead || b.kind === "trap") return; for (var q = 0; q < pts.length; q++) if (Math.hypot(b.cx - pts[q][0], b.cy - pts[q][1]) < 3.2 + b.w / 2) { if (b.kind === "def") { b.frz = 2.5; b.half = 4; } if (b.kind !== "wall") dmgB(b, Math.max(70, b.mx * 0.14), sim.tr[0] || null); return; } });
       sim.ev.push({k: "psurge", pts: pts}); return true;
     };
+
+    // ======== v0.8 squad: charge + chained bursts ========
+    function sqGain(pct) { var m = 1 + (sim.lead ? sim.lead.chg || 0 : 0); for (var i = 0; i < sim.sq.length; i++) { var q = sim.sq[i]; if (q.ch < 100) q.ch = Math.min(100, q.ch + pct * q.cr * m); } }
+    function sqTime(dt) { var m = 1 + (sim.lead ? sim.lead.chg || 0 : 0); for (var i = 0; i < sim.sq.length; i++) { var q = sim.sq[i]; if (q.ch < 100) q.ch = Math.min(100, q.ch + dt * 0.45 * q.cr * m); } }
+    sim.elAdv = function (a, d) { if (a < 0 || d < 0) return 1; if ((a + 1) % 5 === d) return 1.5; if ((d + 1) % 5 === a) return 0.7; return 1; };
+    function liveTr() { return sim.tr.filter(function (u) { return !u.dead && !u.decoy; }); }
+    function centroid() { var l = liveTr(); if (!l.length) return [12, 12]; var x = 0, y = 0; l.forEach(function (u) { x += u.x; y += u.y; }); return [x / l.length, y / l.length]; }
+    function nearB(cx, cy, n, flt) { return sim.bld.filter(function (b) { return !b.dead && b.kind !== "trap" && (!flt || flt(b)); }).map(function (b, i) { return {b: b, d: Math.hypot(b.cx - cx, b.cy - cy), i: i}; }).sort(function (a, b) { return a.d - b.d || a.i - b.i; }).slice(0, n).map(function (o) { return o.b; }); }
+    sim.sqReady = function (i) { var q = sim.sq && sim.sq[i]; return !!q && q.ch >= 99.9 && !sim.done; };
+    sim.sqBurst = function (i) {
+      if (!sim.sqReady(i)) return false; var q = sim.sq[i], el = q.bt; q.ch = 0; q.used++; sim.sqN++; sim.started = true;
+      var bc = sim.bch; if (sim.t - bc.last <= 2.6) { bc.n++; } else { bc.n = 1; bc.els = 0; } bc.last = sim.t; bc.els |= 1 << el; bc.best = Math.max(bc.best, bc.n);
+      var dist = 0; for (var e = 0; e < 5; e++) if (bc.els & (1 << e)) dist++;
+      var chain = 1 + 0.2 * (Math.min(bc.n, 6) - 1), tri = 1 + 0.06 * (dist - 1), em = sim.elAdv(el, sim.bel), pw = q.pw * (1 + (sim.lead ? sim.lead.bp || 0 : 0));
+      var f = 0.11 * pw * chain * tri * em, pts = [], c = centroid(), tr = liveTr(), self = tr[0] || null;
+      function hit(b, k) { dmgB(b, Math.max(70, b.mx * f * (k || 1)), self); pts.push([b.cx, b.cy]); }
+      if (el === 0) { tr.forEach(function (u) { u.hp = Math.min(u.mx, u.hp + u.mx * 0.22 * pw * chain); u.bst = Math.max(u.bst, 4); }); nearB(c[0], c[1], 3, function (b) { return b.kind === "def"; }).forEach(function (b) { hit(b, 1); }); }
+      else if (el === 1) { nearB(c[0], c[1], 5, function (b) { return b.kind !== "wall"; }).forEach(function (b) { hit(b, 1); }); }
+      else if (el === 2) { tr.forEach(function (u) { u.shld = Math.max(u.shld || 0, 4.5); }); nearB(c[0], c[1], 4, function (b) { return b.kind !== "trap"; }).forEach(function (b) { hit(b, b.kind === "wall" ? 1.6 : 1); }); }
+      else if (el === 3) { sim.df.forEach(function (u) { if (!u.dead && Math.hypot(u.x - c[0], u.y - c[1]) < 6) { u.stun = Math.max(u.stun || 0, 2.4 * em); } }); sim.bld.forEach(function (b) { if (!b.dead && b.kind === "def" && Math.hypot(b.cx - c[0], b.cy - c[1]) < 5.5) { b.frz = Math.max(b.frz || 0, 3 * Math.min(1.5, em)); b.half = 5; b.ramp = 0; pts.push([b.cx, b.cy]); } }); nearB(c[0], c[1], 2, function (b) { return b.kind !== "trap"; }).forEach(function (b) { hit(b, 0.8); }); }
+      else { tr.forEach(function (u) { u.bst = Math.max(u.bst, 6); u.pa = Math.max(u.pa || 0, 6); }); var big = sim.bld.filter(function (b) { return !b.dead && b.kind !== "trap" && b.kind !== "wall"; }).sort(function (a, b) { return b.hp - a.hp || a.i - b.i; }).slice(0, 2); big.forEach(function (b) { hit(b, 1.5); }); }
+      var full = dist >= 3 && bc.n >= 4 ? 1 : 0; if (full) { tr.forEach(function (u) { u.shld = Math.max(u.shld || 0, 3); u.bst = Math.max(u.bst, 5); }); sim.charge = Math.min(100, sim.charge + 12); }
+      sim.ev.push({k: "sqb", i: i, id: q.id, el: el, n: bc.n, dist: dist, full: full, mult: +(chain * tri * em).toFixed(2), em: em, pts: pts, cx: c[0], cy: c[1]}); return true;
+    };
     // ======== v0.7 hands-on actions (all deterministic; recorded as script entries; applied between ticks) ========
     sim.tele = []; sim.teleN = 0; sim.rallyCd = 0; sim.marchCd = 0; sim.skB = 0; sim.psT = 0;
     sim.sk = {dodge: 0, pdodge: 0, perf: 0, weak: 0, beat: 0, beatGood: 0, dash: 0, rally: 0, march: 0, focus: 0, chan: 0};
@@ -220,10 +248,11 @@
     }
     sim.skillBonus = skillBonus;
     sim.perfBonus = function (u) { if (!u) return; u.shld = Math.max(u.shld || 0, 3); u.bst = Math.max(u.bst, 3); u.pa = 3; sim.charge = Math.min(100, sim.charge + 2); skillBonus("perf", u.x, u.y, 0.5); sim.ev.push({k: "perf", x: u.x, y: u.y}); };
-    var NEWK = {hmove: 1, hfocus: 1, hdash: 1, hch: 1, hauto: 1, rally: 1, march: 1, weak: 1, beat: 1};
+    var NEWK = {hmove: 1, hfocus: 1, hdash: 1, hch: 1, hauto: 1, rally: 1, march: 1, weak: 1, beat: 1, sqb: 1};
     sim.NEWK = NEWK;
     sim.act = function (a) {
       if (sim.done) return false; var h = heroU(), k = a.k, i, u;
+      if (k === "sqb") return sim.sqBurst(a.i);
       if (k === "hmove") { if (!h) return false; var mx = Math.max(0.4, Math.min(N - 0.4, a.x)), my = Math.max(0.4, Math.min(N - 0.4, a.y)); h.steer = [mx, my]; h.stay = false; h.stuck = 0; if (h.chan > 0) { h.chan = 0; h.chcd = 0.6; } sim.started = true; sim.ev.push({k: "hgo", x: mx, y: my}); return true; }
       if (k === "hfocus") { var fb = sim.bld[a.b]; if (!h || !fb || fb.dead || fb.kind === "trap") return false; h.lock = fb; h.tgt = fb; h.steer = null; h.stay = false; h.path = null; h.blk = null; if (h.chan > 0) { h.chan = 0; } sim.sk.focus++; sim.ev.push({k: "focus", b: fb.i, x: fb.cx, y: fb.cy}); return true; }
       if (k === "hdash") {
@@ -339,7 +368,7 @@
     function regTick(dt) {
       var pathBudget = 10, i, j, u, b, q;
       if (sim.v2 && sim.script) runScript();
-      sim.t += dt;
+      sim.t += dt; if (sim.sq && sim.started) sqTime(dt);
       if (sim.ps > 0) sim.ps -= dt; if (sim.cmb.n > 0 && sim.t - sim.cmb.last > 4) { sim.cmb.n = 0; sim.cmb.tier = 0; sim.ev.push({k: "combo", n: 0, tier: 0}); }
       if (sim.pus.length) { var keep = []; for (i = 0; i < sim.pus.length; i++) { if (sim.t - sim.pus[i].t < sim.pus[i].ttl) keep.push(sim.pus[i]); else sim.ev.push({k: "puexp", id: sim.pus[i].id, x: sim.pus[i].x, y: sim.pus[i].y}); } sim.pus = keep; }
       for (i = 0; i < sim.tr.length; i++) { var tu = sim.tr[i]; if (tu.critCd > 0) tu.critCd -= dt; if (tu.shld > 0) tu.shld -= dt; if (tu.pa > 0) tu.pa -= dt; }
