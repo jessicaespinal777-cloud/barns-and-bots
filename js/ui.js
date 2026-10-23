@@ -11,7 +11,10 @@
   function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove("show"); }, 2300); }
   UI.toast = toast;
   function modal(html, cls) { var m = $("modal"); m.innerHTML = '<div class="mbox ' + (cls || "") + '">' + html + "</div>"; m.classList.remove("hidden"); }
-  function closeModal() { $("modal").classList.add("hidden"); $("modal").innerHTML = ""; }
+  function closeModal() {
+    var m = $("modal"), bx = m.firstChild; if (!bx || m.classList.contains("hidden") || !bx.classList) { m.classList.add("hidden"); m.innerHTML = ""; return; }
+    bx.classList.add("out"); setTimeout(function () { if (m.firstChild === bx) { m.classList.add("hidden"); m.innerHTML = ""; } }, 150);
+  }
   UI.closeModal = closeModal;
   function starImgs(n) { var s = ""; for (var i = 0; i < 3; i++) s += '<img class="bs' + (i < n ? " on pop" : "") + '" src="assets/' + (i < n ? "ui_star" : "ui_star_off") + '.webp" alt="">'; return s; }
   function stars(n, total) { var s = ""; for (var i = 0; i < (total || 3); i++) s += i < n ? "\u2605" : '<span class="off">\u2605</span>'; return s; }
@@ -30,7 +33,7 @@
   function remainMin() { return S.upg ? Math.max(0, S.upg.total - S.upg.done) : 0; }
   function finishUpgrade(skipped) {
     var to = S.upg.to; S.upg = null; S.lvl = to; BB.save(); BB.track("upgrade_done", {to: to, coins: S.coins, skipped: skipped || ""});
-    BB.sfx("upgrade"); showLevelUp(to); UI.refresh();
+    BB.sfx("upgrade"); showLevelUp(to); UI.refresh(); if (BB.FX && BB.FX.levelUp) BB.FX.levelUp("LEVEL " + to + "!", "Baleguard powers up");
   }
   function showLevelUp(to) {
     var p = BB.POWER[to], q = BB.POWER[to - 1];
@@ -262,7 +265,11 @@
   // ---------- settings / debug / playtest data ----------
   function settings() {
     var r = BB.report();
-    var h = '<h1 class="win" style="font-size:22px">SETTINGS</h1><div class="card"><div class="row"><div class="grow"><h4>Sound</h4></div><button class="btn sec" id="s-mute">' + (S.set.mute ? "OFF" : "ON") + "</button></div></div>" +
+    var h = '<h1 class="win" style="font-size:22px">SETTINGS</h1><div class="card"><div class="row"><div class="grow"><h4>Sound</h4></div><button class="btn sec" id="s-mute">' + (S.set.mute ? "OFF" : "ON") + "</button></div>" +
+      '<div class="row"><div class="grow"><h4>Music</h4></div><button class="btn sec" id="s-music">' + (S.set.music === false ? "OFF" : "ON") + "</button></div>" +
+      '<div class="row"><div class="grow"><h4>Haptics (vibration)</h4></div><button class="btn sec" id="s-hap">' + (S.set.haptics === false ? "OFF" : "ON") + "</button></div>" +
+      '<div class="row"><div class="grow"><h4>Reduced flashing</h4><small class="muted">Calmer effects: no screen flashes, slow-mo, zoom or hit-stop, gentler shake, fewer particles</small></div><button class="btn sec" id="s-calm">' + (S.set.calm ? "ON" : "OFF") + "</button></div>" +
+      '<div class="row"><div class="grow"><h4>Lighting</h4></div><button class="btn sec" id="s-tod">' + ({day: "DAY", gold: "GOLDEN", night: "NIGHT"}[S.set.tod] || "AUTO") + "</button></div></div>" +
       '<div class="card"><h4>Playtest data <small class="muted">(stored only on this device)</small></h4><div class="kv"><span>Sessions</span><b>' + r.sessions + "</b><span>Days played</span><b>" + r.daysPlayed + " (" + r.firstDay + ")</b><span>D1 retention</span><b>" + r.D1 + "</b><span>D7 retention</span><b>" + r.D7 + "</b><span>Avg session</span><b>" + fmtTime(r.avgSessionSec / 60) + "</b><span>Missions played</span><b>" + r.missionEnds + "</b><span>Win rate</span><b>" + r.winRate + "</b><span>Events logged</span><b>" + r.eventCount + "</b></div>" +
       '<div style="margin-top:6px"><button class="btn sec" id="s-copy">COPY JSON</button> <button class="btn sec" id="s-dl">DOWNLOAD</button></div></div>' +
       '<div class="card dbg"><h4>Debug / testing</h4><div>Upgrade &amp; farm timers: ' + [1, 60, 100000].map(function (v) { return '<button class="btn sec" data-tm="' + v + '"' + (S.set.timerMul === v ? ' style="outline:2px solid #ffd35a"' : "") + ">" + (v === 1 ? "Real" : v === 60 ? "x60" : "Instant") + "</button>"; }).join("") + "</div>" +
@@ -273,7 +280,7 @@
       '<div class="card"><button class="btn sec" id="s-reset" style="background:#6b2230;border-color:#ff8a8a">RESET SAVE &amp; DATA</button><small class="muted"> v' + BB.VERSION + " &middot; prototype</small></div>" +
       '<div class="btns"><button class="btn" id="s-close">CLOSE</button></div>';
     modal(h);
-    $("s-close").onclick = closeModal; $("s-mute").onclick = function () { BB.toggleMute(); settings(); };
+    $("s-close").onclick = closeModal; $("s-mute").onclick = function () { BB.toggleMute(); settings(); }; $("s-music").onclick = function () { BB.setMusic(S.set.music === false); BB.sfx("tap"); settings(); }; $("s-hap").onclick = function () { S.set.haptics = S.set.haptics === false; BB.save(); BB.vibe(30); settings(); }; $("s-calm").onclick = function () { S.set.calm = !S.set.calm; document.body.classList.toggle("calm", S.set.calm); BB.save(); settings(); }; $("s-tod").onclick = function () { var o = [undefined, "day", "gold", "night"], i = o.indexOf(S.set.tod); S.set.tod = o[(i + 1) % 4]; BB.save(); settings(); };
     $("s-copy").onclick = function () { var j = JSON.stringify({report: BB.report(), events: BB.events(), save: S}, null, 1); if (navigator.clipboard) navigator.clipboard.writeText(j).then(function () { toast("Copied JSON"); }, function () { toast("Copy blocked: use Download"); }); else toast("Use Download"); };
     $("s-dl").onclick = function () { var b = new Blob([JSON.stringify({report: BB.report(), events: BB.events(), save: S}, null, 1)], {type: "application/json"}), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "barns-and-bots-playtest.json"; a.click(); };
     [].forEach.call(document.querySelectorAll("[data-tm]"), function (b) { b.onclick = function () { S.set.timerMul = +b.dataset.tm; BB.save(); settings(); }; });

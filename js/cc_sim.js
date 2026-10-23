@@ -58,6 +58,8 @@
       bdest: 0, defDest: 0, deployed: {}, surged: false, surgeT: 0, fdirty: true, flo: null, win: [], winI: 0, first: null, breaches: [], entry: {}, heat: new Float32Array(N * N), healed: 0, script: opt.script || null, scriptI: 0, allDeployed: !!opt.allDeployed, ulv: opt.ulv || {}, cap: opt.cap || C.RAID_SEC, rngv: C.rng(base.seed || 1), paths: 0};
     var occ = []; for (var y = 0; y < N; y++) occ.push(new Array(N).fill(-1));
     sim.occ = occ;
+    // v0.6 juice state (all deterministic: seeded PRNG, only advanced by sim events)
+    sim.fxr = C.rng((base.seed || 1) + 7777); sim.pus = []; sim.puN = 0; sim.charge = 0; sim.ps = 0; sim.cmb = {n: 0, last: -99, tier: 0, best: 0}; sim.bonus = {c: 0, s: 0}; sim.crits = 0; sim.totLC = 0; sim.totLS = 0; sim.totHP = 0; sim.puGot = 0;
     base.bld.forEach(function (b, i) {
       var d = C.B[b.t], l = b.l || 1, m = C.LV[l] || 1;
       var e = {i: i, t: b.t, x: b.x, y: b.y, w: d.w, h: d.h, l: l, kind: d.kind, mx: d.hp * m, hp: d.hp * m, dead: false, cx: b.x + d.w / 2, cy: b.y + d.h / 2, lc: b.lc || 0, ls: b.ls || 0, lcL: b.lc || 0, lsL: b.ls || 0, cool: 0, tgt: null, hit: 0};
@@ -69,6 +71,7 @@
       if (d.kind !== "trap") for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) occ[b.y + j][b.x + k] = i;
       sim.bld.push(e);
     });
+    sim.bld.forEach(function (b) { if (b.kind !== "wall" && b.kind !== "trap") { sim.totLC += b.lc; sim.totLS += b.ls; sim.totHP += b.mx; } });
     sim.shr = sim.bld.filter(function (b) { return b.spec === "shroud"; }); sim.walls = sim.bld.filter(function (b) { return b.kind === "wall"; });
     sim.crewList = base.crewUnits || null;   // explicit crew (player base) {kind:n} of C.U kinds
     // ---- pathfinding ----
@@ -152,7 +155,10 @@
     function dmgB(b, amt, src) {
       if (b.dead) return; if (src && src.rng > 2 && sim.shr.length && b.kind !== "wall" && shrouded(b)) amt *= 0.7;
       if (sim.first === null && src && b.kind !== "wall" && b.kind !== "trap") sim.first = sim.t;
+      var crit = false;
+      if (src && src.team === "a" && b.kind !== "trap") { if (src.critCd > 0) { } else if (sim.fxr() < 0.045) { amt *= 6; src.critCd = 3.5; crit = true; sim.crits++; } }
       var d = Math.min(amt, b.hp); b.hp -= amt; b.hit = 0.12;
+      if (src && src.team === "a" && b.kind !== "trap") { sim.charge = Math.min(100, sim.charge + d / (sim.totHP || 1) * 100 * 2.6); b.dacc = (b.dacc || 0) + d; if (crit || sim.t - (b.dlast || -9) >= 0.5) { sim.ev.push({k: "dmg", x: b.cx, y: b.cy, a: Math.round(b.dacc), crit: crit ? 1 : 0, w: b.w}); b.dacc = 0; b.dlast = sim.t; } }
       if (src !== undefined && b.kind !== "wall") { var f = d / b.mx, lm = (src && src.lootm) || 1; if (b.lcL > 0) { var g = Math.min(b.lcL, b.lc * f * lm); b.lcL -= g; sim.loot.c += g; } if (b.lsL > 0) { var g2 = Math.min(b.lsL, b.ls * f * lm); b.lsL -= g2; sim.loot.s += g2; } }
       if (b.hp <= 0) killB(b);
     }
@@ -163,9 +169,44 @@
       if (b.kind === "wall") { sim.wallDest = (sim.wallDest || 0) + 1; sim.breaches.push({t: +sim.t.toFixed(1), x: b.x, y: b.y, s: sideOf(b.x, b.y)}); sim.fdirty = true; }
       else if (b.kind !== "trap") sim.fdirty = true;
       if (b.kind === "crew" && !b.released) release(b);
+      if (b.kind !== "wall" && b.kind !== "trap") { comboHit(b.cx, b.cy, 1); dropPU(b); }
       if (b.lcL > 0) { sim.loot.c += b.lcL * 0; }
     }
-    function dmgU(u, amt, srcTeam) { if (u.dead) return; u.hp -= amt; u.hit = 0.1; if (u.hp <= 0) { u.dead = true; sim.ev.push({k: "udead", x: u.x, y: u.y, a: u.art, team: u.team}); } }
+    function dmgU(u, amt, srcTeam) {
+      if (u.dead) return; if (u.shld > 0) amt *= 0.35; u.hp -= amt; u.hit = 0.1;
+      if (u.team === "a") { u.dacc = (u.dacc || 0) + amt; if (sim.t - (u.dlast || -9) >= 0.6 && u.dacc >= 1) { sim.ev.push({k: "dmg", x: u.x, y: u.y, a: Math.round(u.dacc), u: 1}); u.dacc = 0; u.dlast = sim.t; } }
+      if (u.hp <= 0) { u.dead = true; sim.ev.push({k: "udead", x: u.x, y: u.y, a: u.art, team: u.team}); if (u.team === "d") { comboHit(u.x, u.y, 0); sim.charge = Math.min(100, sim.charge + 1.2); } }
+    }
+    function comboHit(x, y, big) {
+      var c = sim.cmb; if (sim.t - c.last > 4) c.n = 0; c.n++; c.last = sim.t; if (c.n > c.best) c.best = c.n;
+      var tier = c.n >= 10 ? 3 : c.n >= 6 ? 2 : c.n >= 3 ? 1 : 0, up = tier > c.tier; c.tier = tier;
+      var ev = {k: "combo", n: c.n, tier: tier, x: x, y: y, up: up ? 1 : 0};
+      if (up) { var bc = Math.round(sim.totLC * 0.012 * tier), bs = Math.round(sim.totLS * 0.012 * tier); sim.loot.c += bc; sim.loot.s += bs; sim.bonus.c += bc; sim.bonus.s += bs; ev.bc = bc; ev.bs = bs; }
+      sim.ev.push(ev);
+    }
+    var PUT = ["rage", "shield", "heal", "burst", "chain"];
+    function dropPU(b) {
+      if (sim.pus.length >= 4) return; var first = sim.puN === 0 && sim.bdest >= 2;
+      if (!first && sim.fxr() > 0.3) return;
+      var lucky = !first && sim.fxr() < 0.12, k = lucky ? "burst" : PUT[first ? 0 : Math.floor(sim.fxr() * 5)];
+      var p = {id: ++sim.puN, k: k, x: b.cx, y: b.cy, t: sim.t, ttl: 13, lucky: lucky ? 1 : 0}; sim.pus.push(p); sim.ev.push({k: "pudrop", id: p.id, pk: k, x: p.x, y: p.y, lucky: p.lucky});
+    }
+    sim.collectPU = function (id) {
+      var p = null, i; for (i = 0; i < sim.pus.length; i++) if (sim.pus[i].id === id) p = sim.pus[i]; if (!p || sim.done) return false;
+      sim.pus = sim.pus.filter(function (q) { return q !== p; }); sim.puGot++; sim.started = true; var k = p.k, pts = [];
+      if (k === "rage") sim.tr.forEach(function (u) { if (!u.dead && !u.decoy) { u.bst = Math.max(u.bst, 8); u.pa = 8; } });
+      else if (k === "shield") sim.tr.forEach(function (u) { if (!u.dead && !u.decoy) { u.shld = 8; u.pa = 8; } });
+      else if (k === "heal") sim.tr.forEach(function (u) { if (!u.dead && !u.decoy) { u.hp = Math.min(u.mx, u.hp + u.mx * 0.4); u.pa = 2; } });
+      else if (k === "burst") { var m = p.lucky ? 3 : 1, bc = Math.round(sim.totLC * 0.03 * m), bs = Math.round(sim.totLS * 0.03 * m); sim.loot.c += bc; sim.loot.s += bs; sim.bonus.c += bc; sim.bonus.s += bs; pts = [bc, bs]; }
+      else if (k === "chain") { var cand = sim.bld.filter(function (b) { return !b.dead && b.kind !== "trap" && b.kind !== "wall"; }).sort(function (a, b) { return Math.hypot(a.cx - p.x, a.cy - p.y) - Math.hypot(b.cx - p.x, b.cy - p.y); }).slice(0, 5); cand.forEach(function (b) { pts.push([b.cx, b.cy]); dmgB(b, Math.max(90, b.mx * 0.16), sim.tr[0] || null); }); }
+      sim.ev.push({k: "pugot", id: id, pk: k, x: p.x, y: p.y, lucky: p.lucky, pts: pts}); return true;
+    };
+    sim.psurge = function () {
+      if (sim.done || sim.charge < 99.9) return false; sim.charge = 0; sim.ps = 7; sim.started = true; var pts = [];
+      sim.tr.forEach(function (u) { if (u.dead || u.decoy) return; u.bst = Math.max(u.bst, 7); u.shld = Math.max(u.shld || 0, 3); u.pa = 7; if (pts.length < 14) pts.push([u.x, u.y]); });
+      sim.bld.forEach(function (b) { if (b.dead || b.kind === "trap") return; for (var q = 0; q < pts.length; q++) if (Math.hypot(b.cx - pts[q][0], b.cy - pts[q][1]) < 3.2 + b.w / 2) { if (b.kind === "def") { b.frz = 2.5; b.half = 4; } if (b.kind !== "wall") dmgB(b, Math.max(70, b.mx * 0.14), sim.tr[0] || null); return; } });
+      sim.ev.push({k: "psurge", pts: pts}); return true;
+    };
     function release(b) {
       b.released = true; var list = [];
       if (sim.crewList) { C.UORDER.forEach(function (k) { for (var i = 0; i < (sim.crewList[k] || 0); i++) list.push(k); }); for (var gi = 0; gi < (sim.crewList.guard || 0); gi++) list.push("guard"); }
@@ -189,7 +230,10 @@
     function regTick(dt) {
       var pathBudget = 10, i, j, u, b, q;
       sim.t += dt;
-      if (sim.script) { while (sim.scriptI < sim.script.length && sim.script[sim.scriptI].t <= sim.t) { var a = sim.script[sim.scriptI++]; if (a.s) sim.spell(a.k, a.x, a.y); else if (a.k === "ability") sim.ability(); else sim.deploy(a.k, a.x, a.y); } if (sim.scriptI >= sim.script.length) sim.allDeployed = true; }
+      if (sim.ps > 0) sim.ps -= dt; if (sim.cmb.n > 0 && sim.t - sim.cmb.last > 4) { sim.cmb.n = 0; sim.cmb.tier = 0; sim.ev.push({k: "combo", n: 0, tier: 0}); }
+      if (sim.pus.length) { var keep = []; for (i = 0; i < sim.pus.length; i++) { if (sim.t - sim.pus[i].t < sim.pus[i].ttl) keep.push(sim.pus[i]); else sim.ev.push({k: "puexp", id: sim.pus[i].id, x: sim.pus[i].x, y: sim.pus[i].y}); } sim.pus = keep; }
+      for (i = 0; i < sim.tr.length; i++) { var tu = sim.tr[i]; if (tu.critCd > 0) tu.critCd -= dt; if (tu.shld > 0) tu.shld -= dt; if (tu.pa > 0) tu.pa -= dt; }
+      if (sim.script) { while (sim.scriptI < sim.script.length && sim.script[sim.scriptI].t <= sim.t) { var a = sim.script[sim.scriptI++]; if (a.s) sim.spell(a.k, a.x, a.y); else if (a.k === "ability") sim.ability(); else if (a.k === "pu") sim.collectPU(a.id); else if (a.k === "ps") sim.psurge(); else sim.deploy(a.k, a.x, a.y); } if (sim.scriptI >= sim.script.length) sim.allDeployed = true; }
       // zones
       for (i = 0; i < sim.zones.length; i++) { var z = sim.zones[i]; z.t -= dt; if (z.k === "clamp" || z.k === "stitch") continue; sim.tr.forEach(function (t) { if (t.dead || t.decoy || Math.hypot(t.x - z.x, t.y - z.y) > z.r) return; if (z.k === "rain") t.hp = Math.min(t.mx, t.hp + t.mx * 0.14 * dt); else if (z.k === "veil") t.veil = 0.25; else t.bst = 0.12; }); }
       sim.zones = sim.zones.filter(function (z) { return z.t > 0; });

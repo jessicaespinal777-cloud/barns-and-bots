@@ -17,12 +17,13 @@
     var n = Date.now(), id = 0;
     function b(t, x, y, l) { return {id: ++id, t: t, x: x, y: y, l: l || 1, up: null, st: 0, lt: n}; }
     return {v: 2, nid: 20, bld: [b("core", 10, 9), b("barn", 14, 9), b("field", 6, 9), b("tinker", 14, 13), b("camp", 6, 13), b("train", 10, 14), b("blaster", 15, 5)],
-      army: {}, queue: [], qLast: n, spells: {}, ulv: {slinger: 1, bruiser: 1, roller: 1, drone: 1}, lab: null, heroHp: 1, heroT: n, hero: "bale", hh: {},
+      army: {slinger: 5, bruiser: 3}, queue: [], qLast: n, spells: {}, ulv: {slinger: 1, bruiser: 1, roller: 1, drone: 1}, lab: null, heroHp: 1, heroT: n, hero: "bale", hh: {},
       crew: {units: {}, req: null, reqAt: 0, don: {}, log: []}, trophies: 0, shield: 0, log: [], unseen: 0, story: {}, daily: {last: "", streak: 0}, quests: {day: "", prog: {}, claimed: {}},
       ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null};
   }
   X.ensure = function () {
     if (!S.cc) S.cc = fresh(); cc = S.cc; var f = fresh(); for (var k in f) if (cc[k] === undefined) cc[k] = f[k];
+    if (cc.tut === undefined) cc.tut = (cc.stats && cc.stats.attacks) || cc.bld.length > 7 || (cc.trophies || 0) > 0 ? 9 : 0;
     if (!cc.v || cc.v < 2) { cc.v = 2; cc.guard = 0; cc.prevLayout = null; if (cc.log) cc.log.forEach(function (e) { if (e && e.base && !e.base.fh) e.base.fh = e.fh || 1; }); BB.track("cc_migrate_v2", {}); }
     return cc;
   };
@@ -76,7 +77,8 @@
   function finishUp(b, skipped) {
     var to = b.up.to; b.up = null; b.l = to; b.lt = Date.now(); if (b.t === "core") { cc.stats.core = to; } stat("upg"); BB.sfx("upgrade"); BB.track("cc_upgrade_done", {t: b.t, to: to, skipped: skipped || ""});
     V.puff(b.x + C.B[b.t].w / 2, b.y + C.B[b.t].h / 2, 14, "#ffe08a", 40, 0.7); V.ring(b.x + C.B[b.t].w / 2, b.y + C.B[b.t].h / 2, 2.5, "#ffe08a");
-    X.toast(C.B[b.t].name + " is now level " + to + "!"); X.save();
+    X.toast(C.B[b.t].name + " is now level " + to + "!"); if (BB.FX) { var fw = V.dims(), fx0 = (b.x + C.B[b.t].w / 2) * C.T, fy0 = fw.gy + (b.y + C.B[b.t].h / 2) * C.T; BB.FX.upDone(fx0, fy0, b.t === "core" ? "CORE LEVEL " + to + "!" : "UPGRADED!", C.B[b.t].name + " L" + to, b.t === "core"); BB.sfx(b.t === "core" ? "fanfare" : "lvl"); BB.vibe([20, 40, 30]); } if (cc.tut === 3) { cc.tut = 9; BB.FX && BB.FX.arrowOff(); }
+    X.save();
   }
   function tickTimers() {
     var now = Date.now(), m = mul();
@@ -108,9 +110,13 @@
   };
 
   // ---------- HUD ----------
+  function cnt(el, v) {
+    if (el._raf && v === el._cv) return; if (el._cv === undefined || !BB.FX || v <= el._cv + 4) { if (el._raf) { cancelAnimationFrame(el._raf); el._raf = 0; } el.textContent = X.fmt(v); el._cv = v; return; }
+    if (el._cvTo === v) return; el._cvTo = v; var go = function () { el._cvTo = undefined; BB.FX.count(el, v, 800, X.fmt, true); }; if (X._cntDelay && performance.now() < X._cntDelay) setTimeout(go, X._cntDelay - performance.now()); else go();
+  }
   X.hud = function () {
     if (raid) return;
-    $("bv-coins").textContent = X.fmt(S.coins); $("bv-salv").textContent = X.fmt(S.salv); $("bv-gems").textContent = X.fmt(S.gems);
+    cnt($("bv-coins"), S.coins); cnt($("bv-salv"), S.salv); cnt($("bv-gems"), S.gems);
     $("bc-coins").style.width = Math.min(100, S.coins / X.coinCap() * 100) + "%"; $("bc-salv").style.width = Math.min(100, S.salv / X.salvCap() * 100) + "%";
     var L = C.league(cc.trophies); $("b-league").innerHTML = '<i class="lg" style="background:' + L.col + '"></i><b>' + cc.trophies + "</b><small>" + L.n + "</small>";
     var sh = cc.shield > Date.now() ? "\u{1F6E1} Shield " + C.fmtT((cc.shield - Date.now()) / 60000) : cc.guard > Date.now() ? "Guard " + C.fmtT((cc.guard - Date.now()) / 60000) : ""; $("b-shield").textContent = sh; $("b-shield").style.display = sh ? "" : "none";
@@ -119,11 +125,12 @@
     q.forEach(function (b) { var rem = b.up.total - b.up.done, g = BB.skipGems(rem); h += '<button class="chip" data-sel="' + b.id + '"><img src="assets/' + (C.B[b.t].art || (b.t === "field" ? "corn" : "silo_dmg")) + '.webp" alt=""><span>' + C.B[b.t].name.split(" ")[0] + " " + C.fmtT(rem) + '</span><i class="gm" data-skip="' + b.id + '">\u25C6' + g + "</i></button>"; });
     if (cc.lab) { var rl = cc.lab.total - cc.lab.done; h += '<button class="chip" data-nav="army"><img src="assets/workshop.webp" alt=""><span>' + C.U[cc.lab.k].name.split(" ")[1] + " L" + cc.lab.to + " " + C.fmtT(rl) + "</span></button>"; }
     if (h !== X._qh) { X._qh = h; $("b-queue").innerHTML = h; }
-    $("b-goal").innerHTML = goalText(); $("log-badge").textContent = cc.unseen || ""; $("log-badge").style.display = cc.unseen ? "" : "none";
+    $("b-goal").innerHTML = goalText(); $("b-daily").classList.toggle("ready", cc.daily.last !== day()); $("log-badge").textContent = cc.unseen || ""; $("log-badge").style.display = cc.unseen ? "" : "none";
     var nq = C.QUESTS.filter(function (q) { return (cc.quests.prog[q.id] || 0) >= q.n && !cc.quests.claimed[q.id]; }).length + (cc.daily.last !== day() ? 1 : 0);
     var tb = $("nav-tasks"); if (tb) tb.classList.toggle("dot", nq > 0);
   };
   function goalText() {
+    if (cc.tut === 3) return "Tap your Coin Barn, then UPGRADE it: it finishes in seconds!";
     if (!cc.stats.attacks) { var hs = X.housed(); if (!hs && !(cc.army.slinger || cc.army.bruiser)) return "Next: open ARMY and train your first troops"; return "Next: tap ATTACK and clear Campaign Mission 1"; }
     var core = bt("core")[0]; if (core && !core.up && core.l < C.CORE_MAX) { var c = C.B.core.c[core.l]; return "Next goal: upgrade the Homestead Core to L" + (core.l + 1) + " (" + X.fmt(c) + " coins) to unlock new buildings"; }
     if (cc.daily.last !== day()) return "Next: claim today's daily reward in TASKS";
@@ -176,7 +183,7 @@
   X.collect = function (b) {
     var d = C.B[b.t], amt = Math.floor(b.st || 0); if (amt < 1) return; var r = d.res === "c" ? addCapped(amt, 0)[0] : addCapped(0, amt)[1];
     if (r <= 0) { BB.sfx("deny"); X.toast("Storage full! Build or upgrade a " + (d.res === "c" ? "Coin Barn" : "Salvage Silo")); return; }
-    b.st -= r; BB.sfx(d.res === "c" ? "coin" : "salv"); V.float(b.x + d.w / 2, b.y - 0.5, "+" + r, d.res === "c" ? "#ffd35a" : "#8fd4ff"); if (d.res === "c") stat("collect", r); X.hud();
+    b.st -= r; BB.sfx(d.res === "c" ? "coin" : "salv"); if (BB.FX) { var dm = V.dims(); BB.FX.flyWorld((b.x + d.w / 2) * C.T, dm.gy + b.y * C.T, d.res, Math.min(8, 2 + Math.floor(r / 40)), r); BB.vibe(10); } V.float(b.x + d.w / 2, b.y - 0.5, "+" + r, d.res === "c" ? "#ffd35a" : "#8fd4ff"); if (d.res === "c") stat("collect", r); X.hud();
   };
   X.bubble = function (b) { var d = C.B[b.t]; return d.kind === "col" && b.l >= 1 && (b.st || 0) >= Math.max(15, d.cap[b.l] * 0.12); };
   X.selBar = function () {
@@ -210,7 +217,7 @@
   }
   X.doUp = function (b) {
     var d = C.B[b.t], l = b.l, can = canUp(b); if (can !== true) { BB.sfx("deny"); X.toast(can); return; }
-    S.coins -= d.c[l]; S.salv -= d.s[l]; b.up = {to: l + 1, total: d.t[l], done: 0, last: Date.now()}; BB.sfx("upgrade"); BB.track("cc_upgrade_start", {t: b.t, to: l + 1}); X.selBar(); X.hud(); X.save();
+    S.coins -= d.c[l]; S.salv -= d.s[l]; var early = (cc.stats.upg || 0) < 3 ? Math.min(d.t[l], 0.1) : d.t[l]; b.up = {to: l + 1, total: early, done: 0, last: Date.now()}; BB.sfx("hammer"); V.ring(b.x + d.w / 2, b.y + d.h / 2, 1.8, "#ffd35a"); BB.vibe(12); BB.track("cc_upgrade_start", {t: b.t, to: l + 1}); X.selBar(); X.hud(); X.save();
   };
   X.skip = function (b) {
     if (!b.up) return; var g = BB.skipGems(b.up.total - b.up.done); if (S.gems < g) { BB.sfx("deny"); X.toast("Not enough play-gems. (Gems are not real money; the shop is a mock.)"); return; }
@@ -352,25 +359,27 @@
     if (kind === "practice") { raid.army = practiceArmy(); raid.spl = practiceSpells(); raid.noHero = true; }
     V.showHeat = false; V.analysis = null; V.showRanges = false;
     document.body.classList.add("raiding"); $("base").classList.add("m-raid"); V.mode = "raid"; V.setTheme(base.theme === "a" ? "a" : "p"); V.sim = sim; V.scout = true; V.showDeploy = false; V.parts = []; V.projs = []; V.rings = []; V.floats = []; V.rubble = [];
-    $("b-sel").classList.add("hidden"); scoutHTML(); raidHud(); BB.sfx("click");
+    $("b-sel").classList.add("hidden"); scoutHTML(); raidHud(); BB.sfx("click"); if (BB.FX) { BB.FX.camReset(); BB.FX.scoutPan(base.name, kind === "story" ? raid.mi : 0); BB.FX.hudOn = false; } BB.music && BB.music("raid");
   };
   function lootOf(b) { var c = 0, s = 0; b.bld.forEach(function (x) { c += x.lc || 0; s += x.ls || 0; }); return [c, s]; }
+  function threat(i) { var n = Math.min(5, 1 + Math.floor((i + 1) / 2)), t = ""; for (var k = 0; k < 5; k++) t += k < n ? '<i class="on"></i>' : "<i></i>"; return t; }
   function scoutHTML() {
     var b = raid.base, l = lootOf(b), el = $("r-scout"), fh = X.coreL(), sd = raid.kind === "story" ? C.STORY[raid.mi - 1] : null;
     el.classList.remove("hidden");
     el.innerHTML = '<div class="sc-name"><b>' + b.name + "</b><small>" + (sd ? "Campaign " + raid.mi + "/10 &middot; " + sd.desc : (raid.kind === "practice" ? "Practice raid on your own base &middot; no loot, no trophies" : "Alien outpost &middot; Core L" + b.fh + (b.gapm && b.gapm !== 1 ? " &middot; loot x" + b.gapm.toFixed(2) + (b.gapm < 1 ? " (lower Core)" : " (higher Core bonus)") : ""))) + "</small></div>" +
       '<div class="sc-loot"><span><i class="ico coin"></i>' + X.fmt(l[0]) + '</span><span><i class="ico salv"></i>' + X.fmt(l[1]) + "</span>" + (raid.kind !== "story" && raid.kind !== "practice" ? '<span class="tw">\u25B2 +' + b.tw + ' \u25BC -' + b.tl + "</span>" : "") + "</div>" +
-      '<div class="sc-btns">' + (raid.kind === "find" ? '<button class="btn sec" id="sc-next">NEXT <small>' + 40 * fh + "c</small></button>" : "") + '<button class="btn sec" id="sc-back">BACK</button><button class="btn" id="sc-go">ATTACK!</button></div><div class="sc-hint">Scout the base: red circles show defense range. Look for gaps, walls, and the crew barn.</div>';
-    $("sc-back").onclick = function () { leaveRaid(true); }; $("sc-go").onclick = beginRaid; var n = $("sc-next"); if (n) n.onclick = function () { var old = raid.base.seed; leaveRaid(true); X.findRaid(); };
+      '<div class="sc-btns">' + (raid.kind === "find" ? '<button class="btn sec" id="sc-next">NEXT <small>' + 40 * fh + "c</small></button>" : "") + '<button class="btn sec" id="sc-back">BACK</button><button class="btn" id="sc-go">ATTACK!</button></div>' + (sd ? '<div class="sc-threat">THREAT <b>' + threat(raid.mi) + "</b></div>" : "") + '<div class="sc-hint">Scout the base: red circles show defense range. Look for gaps, walls, and the crew barn.</div>';
+    $("sc-back").onclick = function () { leaveRaid(true); }; $("sc-go").onclick = beginRaid; if (cc.tut === 1 && BB.FX) setTimeout(function () { if (raid && raid.phase === "scout" && cc.tut === 1) BB.FX.arrow($("sc-go"), "Tap ATTACK!"); }, 1700); var n = $("sc-next"); if (n) n.onclick = function () { var old = raid.base.seed; leaveRaid(true); X.findRaid(); };
   }
   function beginRaid() {
+    if (BB.FX) BB.FX.arrowOff();
     raid.phase = "fight"; V.scout = false; V.showDeploy = true; $("r-scout").classList.add("hidden"); raid.sim.started = false; raid.sim.allDeployed = false; if (raid.kind !== "practice") { cc.stats.attacks = (cc.stats.attacks || 0) + 1; stat("attacks", 0); if (!(cc.shield > Date.now())) cc.guard = Date.now() + C.GUARD_MIN * 60000 / mul(); } BB.track("cc_raid_start", {kind: raid.kind, mi: raid.mi, fh: raid.base.fh});
     var first = null; C.UORDER.forEach(function (k) { if (!first && raid.army[k] > 0) first = {t: "u", k: k}; }); raid.sel = first || (cc.heroHp > 0.2 && !raid.noHero ? {t: "h", k: "hero"} : null); raid.army0 = JSON.parse(JSON.stringify(raid.army)); raid.spells0 = JSON.parse(JSON.stringify(raid.spl));
-    raid.t0 = performance.now(); raid.hpHero = cc.heroHp; raidBar(); raidHud(); BB.sfx("click");
+    raid.t0 = performance.now(); raid.hpHero = cc.heroHp; raidBar(); raidHud(); BB.sfx("click"); if (BB.FX) { BB.FX.hudOn = !raid.replay; BB.FX.banner("RAID!", "#ff8a3a", "Tap the glowing edge to deploy", {big: true}); BB.sfx("roar"); BB.vibe([25, 30, 45]); BB.FX.shake(3); if (cc.tut === 1 || cc.tut === 2) { cc.tut = 2; setTimeout(function () { var b0 = document.querySelector("#r-bar .tb[data-t]:not(.zero)"); if (b0 && raid && cc.tut === 2) BB.FX.arrow(b0, "Pick a troop, then tap the yellow edge"); }, 600); } }
   }
   function leaveRaid(refund) {
     var wasReplay = raid && raid.replay; raid = null; V.sim = null; V.mode = "base"; V.scout = false; V.showDeploy = false; V.showHeat = false; V.setTheme("p"); document.body.classList.remove("raiding"); $("base").classList.remove("m-raid"); $("r-scout").classList.add("hidden"); $("r-bar").innerHTML = "";
-    X.close(); V.parts = []; V.rings = []; V.projs = []; V.floats = []; X.hud(); X.selBar(); X.save();
+    X.close(); V.parts = []; V.rings = []; V.projs = []; V.floats = []; if (BB.FX) { BB.FX.camReset(); BB.FX.hudOn = false; BB.FX.clearAll(); } BB.music && BB.music("base"); X.hud(); X.selBar(); X.save(); if (cc.tut === 3 && BB.FX) setTimeout(function () { BB.FX.arrow($("b-goal"), "Your next step"); }, 900);
   }
   X.leaveRaid = leaveRaid;
   function troopBtn(k, t) {
@@ -388,9 +397,15 @@
   function fmtClock(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2); }
   function raidHud() {
     if (!raid) return; var s = raid.sim, left = raid.phase === "scout" ? C.RAID_SEC : C.RAID_SEC - s.t; if (raid.replay) left = C.RAID_SEC - s.t;
-    $("r-timer").textContent = (raid.phase === "scout" ? "Scouting" : fmtClock(left)); $("r-pct").textContent = s.pct + "%";
-    var st = ""; for (var i = 0; i < 3; i++) st += '<img src="assets/' + (i < s.stars ? "ui_star" : "ui_star_off") + '.webp" alt="">'; $("r-stars").innerHTML = st;
-    $("r-loot").innerHTML = '<span><i class="ico coin"></i>+' + X.fmt(s.loot.c) + '</span><span><i class="ico salv"></i>+' + X.fmt(s.loot.s) + "</span>";
+    $("r-timer").textContent = (raid.phase === "scout" ? "Scouting" : fmtClock(left));
+    var pt = s.pct + "%", pe = $("r-pct"); if (raid._pt !== pt) { var up = raid._pt !== undefined; raid._pt = pt; pe.textContent = pt; if (up && BB.FX) BB.FX.bump(pe); }
+    var pb = $("r-pbar"); if (pb) { var pi = pb.firstChild; if (pi) pi.style.width = Math.min(100, s.pct) + "%"; pb.classList.toggle("h1", s.pct >= 50); pb.classList.toggle("h2", s.pct >= 100); }
+    if (raid._st !== s.stars) {
+      var gained = raid._st !== undefined && s.stars > raid._st; raid._st = s.stars; var st = ""; for (var i = 0; i < 3; i++) st += '<img class="' + (gained && i === s.stars - 1 ? "pop" : "") + '" src="assets/' + (i < s.stars ? "ui_star" : "ui_star_off") + '.webp" alt="">'; $("r-stars").innerHTML = st;
+      if (gained && BB.FX) { BB.sfx("star2", s.stars); BB.vibe([20, 30, 40]); BB.FX.starBurst($("r-stars").children[s.stars - 1]); BB.FX.banner(s.stars === 3 ? "THREE STARS!" : s.stars === 2 ? "CORE DOWN!" : "ONE STAR!", "#ffd35a", "", {big: s.stars === 3}); if (s.stars === 3) { BB.FX.confetti(innerWidth / 2, innerHeight * 0.4, 60, true); BB.FX.flash("#fff1b0", 0.4); } }
+    }
+    var ld = raid._ld || (raid._ld = {c: 0, s: 0}); ld.c += (s.loot.c - ld.c) * 0.4; ld.s += (s.loot.s - ld.s) * 0.4; if (Math.abs(s.loot.c - ld.c) < 1) ld.c = s.loot.c; if (Math.abs(s.loot.s - ld.s) < 1) ld.s = s.loot.s;
+    var lh = '<span><i class="ico coin"></i>+' + X.fmt(Math.round(ld.c)) + '</span><span><i class="ico salv"></i>+' + X.fmt(Math.round(ld.s)) + "</span>"; if (lh !== raid._lh) { raid._lh = lh; $("r-loot").innerHTML = lh; }
     $("r-end").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-end").textContent = raid.replay ? "CLOSE" : raid.kind === "practice" ? "END TEST" : "END BATTLE"; $("r-speed").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-speed").textContent = "x" + raid.speed;
     var rw = $("r-win"); if (rw) { var tt = raid.phase === "scout" ? 0 : s.t, hw = ""; C.WINDOWS.forEach(function (w, i) { var act = tt >= w.a && tt < w.b, pc = Math.max(0, Math.min(1, (tt - w.a) / (w.b - w.a))); hw += '<span class="' + (act ? "on" : tt >= w.b ? "past" : "") + '" style="flex:' + (w.b - w.a) + '"><i style="width:' + Math.round(pc * 100) + '%"></i><b>' + w.n + "</b></span>"; }); if (hw !== X._wh) { X._wh = hw; rw.innerHTML = hw; } rw.style.display = raid.phase === "scout" ? "none" : ""; }
     $("r-star1").className = s.pct >= 50 ? "on" : ""; $("r-star2").className = s.coreDead ? "on" : ""; $("r-star3").className = s.pct >= 100 ? "on" : "";
@@ -398,14 +413,18 @@
   var denyAt = 0;
   X.raidTap = function (x, y, first) {
     if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done || !raid.sel) return; var s = raid.sim, sel = raid.sel, now = performance.now();
-    if (sel.t === "s") { if (!first) return; if (x < 0 || y < 0 || x > N || y > N) return; if ((raid.spl[sel.k] || 0) < 1) return; s.spell(sel.k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: sel.k, x: +x.toFixed(2), y: +y.toFixed(2)}); raid.spl[sel.k]--; BB.sfx("ult"); V.ring(x, y, 3, C.SP[sel.k].col); if (!raid.spl[sel.k]) { raid.sel = null; } raidBar(); startClock(); return; }
+    if (sel.t === "s") { if (!first) return; if (x < 0 || y < 0 || x > N || y > N) return; if ((raid.spl[sel.k] || 0) < 1) return; s.spell(sel.k, x, y); if (BB.FX) BB.FX.spell(sel.k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: sel.k, x: +x.toFixed(2), y: +y.toFixed(2)}); raid.spl[sel.k]--; BB.sfx("ult"); V.ring(x, y, 3, C.SP[sel.k].col); if (!raid.spl[sel.k]) { raid.sel = null; } raidBar(); startClock(); return; }
     if (!first && now - raid.lastDep < 85) return; var cx = Math.max(0.5, Math.min(N - 0.5, x)), cy = Math.max(0.5, Math.min(N - 0.5, y));
     if (!s.canDeploy(cx, cy)) { if (first && now - denyAt > 1200) { denyAt = now; X.toast("Deploy troops from the edge, outside the plot"); BB.sfx("deny"); } return; }
-    raid.lastDep = now; var jx = (Math.random() - 0.5) * 0.5, jy = (Math.random() - 0.5) * 0.5;
-    if (sel.t === "u") { if ((raid.army[sel.k] || 0) < 1) return; var u = s.deploy(sel.k, cx + jx, cy + jy); if (!u) return; raid.rec.push({t: +s.t.toFixed(2), k: sel.k, x: +(cx + jx).toFixed(2), y: +(cy + jy).toFixed(2)}); raid.army[sel.k]--; raid.dep[sel.k] = (raid.dep[sel.k] || 0) + 1; BB.sfx("shoot"); if (!raid.army[sel.k]) { raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); } else raidBar(); }
-    else if (sel.t === "h") { if (raid.hero || cc.heroHp <= 0.2) return; var h = s.deploy("hero", cx, cy, {lvl: S.lvl, hpFrac: cc.heroHp, hid: X.heroId()}); if (!h) return; raid.hero = h; raid.rec.push({t: +s.t.toFixed(2), k: "hero", x: +cx.toFixed(2), y: +cy.toFixed(2)}); BB.sfx("roar"); raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); }
+    raid.lastDep = now; if (BB.FX) { BB.FX.deployRing(cx, cy, sel.t === "h"); BB.vibe(6); } var jx = (Math.random() - 0.5) * 0.5, jy = (Math.random() - 0.5) * 0.5;
+    if (sel.t === "u") { if ((raid.army[sel.k] || 0) < 1) return; var u = s.deploy(sel.k, cx + jx, cy + jy); if (!u) return; raid.rec.push({t: +s.t.toFixed(2), k: sel.k, x: +(cx + jx).toFixed(2), y: +(cy + jy).toFixed(2)}); raid.army[sel.k]--; raid.dep[sel.k] = (raid.dep[sel.k] || 0) + 1; BB.sfx("shoot"); if (cc.tut === 2) { cc.tut = 3; BB.FX && BB.FX.arrowOff(); } if (!raid.army[sel.k]) { raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); } else raidBar(); }
+    else if (sel.t === "h") { if (raid.hero || cc.heroHp <= 0.2) return; var h = s.deploy("hero", cx, cy, {lvl: S.lvl, hpFrac: cc.heroHp, hid: X.heroId()}); if (!h) return; raid.hero = h; raid.rec.push({t: +s.t.toFixed(2), k: "hero", x: +cx.toFixed(2), y: +cy.toFixed(2)}); BB.sfx("roar"); if (BB.FX) BB.FX.heroEntrance(cx, cy, X.heroId()); raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); }
     startClock();
   };
+  X.puTap = function (id) { if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done) return; if (raid.sim.collectPU(id) !== false) { raid.rec.push({t: +raid.sim.t.toFixed(2), k: "pu", id: id}); startClock(); BB.vibe(12); } };
+  X.psTap = function () { if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done) return; if (raid.sim.psurge()) { raid.rec.push({t: +raid.sim.t.toFixed(2), k: "ps"}); startClock(); } else BB.sfx("deny"); };
+  var upc = {t: 0, ids: {}};
+  X.upReady = function (b) { var now = performance.now(); if (now - upc.t > 700) { upc.t = now; upc.ids = {}; if (!raid && X.freeTinker() > 0) cc.bld.forEach(function (q) { if (!q.up && q.l >= 1 && q.t !== "wall" && q.t !== "trap" && canUp(q) === true) upc.ids[q.id] = 1; }); } return upc.ids[b.id]; };
   function startClock() { if (raid && !raid.clock) { raid.clock = true; } }
   X.raidUp = function () { if (raid && raid.phase === "fight" && !raid.replay) { var left = C.UORDER.some(function (k) { return raid.army[k] > 0; }) || (cc.heroHp > 0.2 && !raid.hero && !raid.noHero); raid.sim.allDeployed = !left; } };
   X.endBattle = function () { if (!raid) return; if (raid.replay) { leaveRaid(); return; } if (raid.phase === "fight") { raid.sim.done = true; raid.sim.why = "surrender"; finishRaid(); } };
@@ -414,7 +433,7 @@
     // hero hp
     if (raid.hero) { cc.heroHp = raid.hero.dead || raid.hero.hp <= 0 ? 0 : Math.max(0.05, raid.hero.hp / raid.hero.mx); cc.heroT = Date.now(); }
     if (kind === "practice") {
-      V.showHeat = true; cc.lastRaid = {base: base, script: raid.rec, ulv: cc.ulv, heroLvl: S.lvl, heroId: X.heroId(), heroHp: 1, kind: "practice", mi: 0, army: raid.army0}; BB.track("cc_practice_end", {stars: st, pct: r.pct, sec: r.t, n: r.funnel.n}); stat("practice"); BB.sfx(win ? "win" : "lose"); X.save();
+      V.showHeat = true; cc.lastRaid = {base: base, script: raid.rec, ulv: cc.ulv, heroLvl: S.lvl, heroId: X.heroId(), heroHp: 1, kind: "practice", mi: 0, army: raid.army0}; BB.track("cc_practice_end", {stars: st, pct: r.pct, sec: r.t, n: r.funnel.n}); stat("practice"); BB.sfx(win ? "stingwin" : "stinglose"); X.save();
       showResults(r, [0, 0], 0, "Practice only: no loot, no trophies, no troops spent.", false, 1); return;
     }
     var firstClear = false, rewards = "", lootMul = 1;
@@ -423,7 +442,7 @@
     if (kind !== "story") { td = win ? Math.min(base.tw + (st - 1) * 3, 60) : -base.tl; if (cc.trophies + td < 0) td = -cc.trophies; cc.trophies += td; }
     if (win) { stat("win"); stat("stars", st); } stat("bdest", r.bdest); if (r.defDest) stat("defs", r.defDest); cc.stats.trophies = Math.max(cc.stats.trophies || 0, cc.trophies);
     cc.pass.pts += 10 + st * 8; cc.lastRaid = {base: base, script: raid.rec, ulv: cc.ulv, heroLvl: S.lvl, heroId: X.heroId(), heroHp: raid.hpHero, kind: kind, mi: raid.mi, army: raid.army0}; cc.rep.unshift({ts: Date.now(), name: base.name, stars: st, pct: r.pct, kind: kind}); cc.rep = cc.rep.slice(0, 5);
-    BB.track("cc_raid_end", {kind: kind, mi: raid.mi, stars: st, pct: r.pct, lc: r.loot.c, sec: r.t, why: r.why, td: td}); BB.sfx(win ? "win" : "lose"); X.save();
+    BB.track("cc_raid_end", {kind: kind, mi: raid.mi, stars: st, pct: r.pct, lc: r.loot.c, sec: r.t, why: r.why, td: td}); BB.sfx(win ? "stingwin" : "stinglose"); X.save();
     showResults(r, got, td, rewards, firstClear, lootMul);
   }
   function funnelHTML(f) {
@@ -432,6 +451,15 @@
   }
   X.funnelHTML = funnelHTML;
   function starRow(n) { var s = ""; for (var i = 0; i < 3; i++) s += '<img class="bs' + (i < n ? " on pop" : "") + '" src="assets/' + (i < n ? "ui_star" : "ui_star_off") + '.webp" alt="">'; return s; }
+  function resultFx(r, got, td, rewards, lootMul) {
+    var F = BB.FX; if (!F) return; var win = r.stars >= 1, vals = document.querySelectorAll("#modal .loot span, .modal .loot span");
+    BB.vibe(win ? [40, 50, 40, 50, 90] : [160]);
+    [].forEach.call(document.querySelectorAll(".bigstars2 img"), function (im, i) { if (!im.classList.contains("on")) return; im.style.animationDelay = (0.25 + i * 0.4) + "s"; setTimeout(function () { if (!im.isConnected) return; BB.sfx("star2", i + 1); BB.vibe(18); F.starBurst(im); }, 250 + i * 400); });
+    if (r.stars === 3) setTimeout(function () { F.confetti(innerWidth / 2, innerHeight * 0.38, 90, true); F.confetti(innerWidth * 0.2, innerHeight * 0.5, 40, true); F.confetti(innerWidth * 0.8, innerHeight * 0.5, 40, true); F.flash("#fff1b0", 0.45); BB.sfx("fanfare"); }, 1300);
+    var tgt = {1: [got[0], function (v) { return "+" + X.fmt(v) + (lootMul < 1 ? " (repeat: half)" : ""); }], 3: [got[1], function (v) { return "+" + X.fmt(v); }], 5: [td, function (v) { return (v >= 0 ? "+" : "") + v; }]};
+    [1, 3, 5].forEach(function (i) { var el = vals[i], t = tgt[i]; if (!el || !t || raid.kind === "practice") return; el._cv = 0; setTimeout(function () { if (el.isConnected) F.count(el, t[0], 1000, t[1], true); }, 500 + i * 120); });
+    if (/NEW HERO/.test(rewards || "")) setTimeout(function () { F.levelUp("HERO UNLOCKED!", "Scarecrow-X joins your farm"); }, 1800);
+  }
   function showResults(r, got, td, rewards, firstClear, lootMul) {
     var win = r.stars >= 1, kind = raid.kind, L = C.league(cc.trophies), boss = raid.base.boss;
     var h = '<h1 class="' + (win ? "win" : "lose") + '">' + (kind === "practice" ? "PRACTICE RESULT" : win ? (r.stars === 3 ? "TOTAL VICTORY!" : "RAID WON!") : "RAID FAILED") + '</h1><div class="bigstars2">' + starRow(r.stars) + '</div><div class="muted" style="text-align:center">' + raid.base.name + " &middot; " + r.pct + "% destroyed" + (r.coreDead ? " &middot; Core down" : "") + '</div>' + (kind === "practice" ? "" : '<div class="loot"><span>Coins looted</span><span>+' + X.fmt(got[0]) + (lootMul < 1 ? " (repeat: half)" : "") + "</span><span>Salvage looted</span><span>+" + X.fmt(got[1]) + "</span>" + (kind !== "story" ? "<span>Trophies</span><span>" + (td >= 0 ? "+" : "") + td + "</span><span>League</span><span>" + L.n + " (" + cc.trophies + ")</span>" : "") + (raid.base.gapm && raid.base.gapm !== 1 ? "<span>Core gap</span><span>loot x" + raid.base.gapm.toFixed(2) + "</span>" : "") + "</div>") + (rewards ? '<div class="muted" style="text-align:center;color:#ffd77a">' + rewards + "</div>" : "");
@@ -440,7 +468,8 @@
     var btns = '<button class="btn sec" id="rs-home">HOME</button><button class="btn sec" id="rs-rep">REPLAY</button>';
     if (boss && win) btns += '<button class="btn blue" id="rs-duel">DUEL VORLAX!</button>'; else if (kind === "story" && win && raid.mi < 10) btns += '<button class="btn" id="rs-next">NEXT MISSION</button>'; else if (kind === "find") btns += '<button class="btn" id="rs-again">FIND ANOTHER</button>'; else if (kind === "practice") btns += '<button class="btn" id="rs-prac">TRY AGAIN</button>';
     X.modal(h + '<div class="btns">' + btns + "</div>", "res"); var mi = raid.mi, kd = kind, base = raid.base;
-    $("rs-home").onclick = function () { leaveRaid(); }; $("rs-rep").onclick = function () { X.watchLast(); };
+    resultFx(r, got, td, rewards, lootMul);
+    $("rs-home").onclick = function () { if (BB.FX && kd !== "practice") { X._cntDelay = performance.now() + 750; leaveRaid(); BB.FX.flyScreen(innerWidth / 2, innerHeight * 0.45, "c", 8, got[0]); BB.FX.flyScreen(innerWidth / 2 + 30, innerHeight * 0.5, "s", 5, got[1]); } else leaveRaid(); }; $("rs-rep").onclick = function () { X.watchLast(); };
     var d = $("rs-duel"); if (d) d.onclick = function () { leaveRaid(); BB.fromCC = true; $("base").classList.remove("active"); BB.UI.startBattle(10); };
     var n = $("rs-next"); if (n) n.onclick = function () { leaveRaid(); X.startStory(mi + 1); }; var a = $("rs-again"); if (a) a.onclick = function () { leaveRaid(); X.findRaid(); }; var pr = $("rs-prac"); if (pr) pr.onclick = function () { leaveRaid(); X.startPractice(); };
   }
@@ -454,9 +483,9 @@
   var last = 0;
   function frame(ts) {
     requestAnimationFrame(frame); var dt = Math.min(0.05, (ts - last) / 1000 || 0.016); last = ts; if (!$("base").classList.contains("active")) return;
-    if (!V.ready()) { V.draw(); return; }
+    if (!V.ready()) { V.draw(); return; } var tsc = BB.FX ? BB.FX.step(dt) : 1;
     if (raid && (raid.phase === "fight" || raid.replay) && !raid.sim.done) {
-      var q = new URLSearchParams(location.search), fast = +(q.get("fast") || 1) * (window.__ccFast || 1); raid.acc += dt * raid.speed * fast; var n = 0, sim = raid.sim;
+      var q = new URLSearchParams(location.search), fast = +(q.get("fast") || 1) * (window.__ccFast || 1); raid.acc += dt * raid.speed * fast * tsc; var n = 0, sim = raid.sim;
       while (raid.acc >= sim.dt && n < 40 * Math.max(1, fast) && !sim.done) { raid.acc -= sim.dt; if (raid.phase === "fight" && (sim.started || raid.replay || sim.t > 0 || raid.clock)) sim.step(sim.dt); n++; if (sim.done) break; }
       if (!raid.clock && !raid.replay) raid.acc = 0;
       if (sim.done && !raid.replay) { finishRaid(); } else if (sim.done && raid.replay && !raid.shown) { raid.shown = 1; V.showHeat = true; X.toast("Replay finished"); X.modal('<h1 class="win" style="font-size:20px">REPLAY SUMMARY</h1><div class="muted" style="text-align:center">' + sim.pct + "% &middot; " + sim.stars + ' star' + (sim.stars === 1 ? "" : "s") + "</div>" + funnelHTML(S2.funnel(sim)) + '<div class="btns"><button class="btn sec" id="m-no">WATCH THE MAP</button><button class="btn" id="m-cl">CLOSE REPLAY</button></div>'); $("m-no").onclick = X.close; $("m-cl").onclick = function () { X.close(); leaveRaid(); }; }
@@ -467,8 +496,8 @@
   X.show = function () { $("home").classList.remove("active"); $("battle").classList.remove("active"); $("base").classList.add("active"); V.resize(); X.hud(); X.selBar(); };
   X.init = function () {
     X.ensure(); V.init($("bcv")); V.cb.tap = X.tapAt; V.cb.ghostMove = X.ghostMove; V.cb.paintAt = X.paintAt; V.cb.paintEnd = function () { X.save(); }; V.cb.raidTap = X.raidTap; V.cb.raidUp = X.raidUp; V.cb.bubble = X.bubble; V.cb.sfx = function (n) { BB.sfx(n); };
-    V.cb.audio = function () { BB.audioInit && BB.audioInit(); }; V.cb.toast = X.toast; V.base = cc.bld; V.mode = "base";
-    var missed = X.offlineRaids(); X.hud(); X.bind(); setInterval(X.tick, 1000); requestAnimationFrame(frame); window.__cc = {X: X, V: V, cc: function () { return cc; }, raid: function () { return raid; }};
+    V.cb.audio = function () { BB.audioInit && BB.audioInit(); }; V.cb.puTap = X.puTap; V.cb.upReady = X.upReady; if (BB.FX) { BB.FX.init(); BB.FX.cb = {ps: X.psTap}; } BB.music && BB.music("base"); V.cb.toast = X.toast; V.base = cc.bld; V.mode = "base";
+    var missed = X.offlineRaids(); if (cc.tut === 0 && BB.FX) setTimeout(function () { if (cc.tut === 0 && !raid) BB.FX.arrow($("btn-attack"), "Your first raid! Tap ATTACK"); }, 700); X.hud(); X.bind(); setInterval(X.tick, 1000); requestAnimationFrame(frame); window.__cc = {X: X, V: V, cc: function () { return cc; }, raid: function () { return raid; }};
     if (X.afterInit) X.afterInit(missed);
   };
   X.setSpeed = function () { if (raid) { raid.speed = raid.speed === 1 ? 2 : raid.speed === 2 ? 3 : 1; } };

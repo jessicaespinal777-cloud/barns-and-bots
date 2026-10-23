@@ -4,7 +4,7 @@
   var C = BB.CC, V = BB.CCV = {}, N = C.GRID, T = C.T, GW = N * T;
   var cv, cx, dpr = 1, cssW = 360, cssH = 700, sc = 1, Hl = 700, gx = 0, gy = 0, IMG = {}, loaded = 0, ready = false, SCACHE = {}, ground = null;
   var ART = ["homestead","workshop","trainbarn","muster","crewhall","tinker","t_blaster","t_sniper","t_lobber","t_flak","t_trap","t_post","a_core","a_blaster","a_sniper","a_lobber","a_flak","a_harv","a_vaultC","a_vaultS","a_wall","a_bunker",
-    "u_bruiser","u_slinger","u_roller","u_drone","u_guard","barn","silo","silo_dmg","corn","tree","pine","flowers","pumpkins","hay_round","hay_stack","snatcher","stinger","tank","bg_front","scx","fx_ring","fx_spark","fx_stars","i_coin","i_scrap","cow","sheep","pig","u_chick","u_sow","u_hound","u_wrench","u_mule","u_spinner","u_badger","u_kestrel","al_raker","al_blink","al_bastion","al_shard","t_fan","t_storm","t_coil","t_crane","t_driver","t_shroud","a_fan","a_storm","a_coil","a_crane","a_driver","a_shroud","tp_snare","tp_mine","tp_cache","tp_stake"];
+    "u_bruiser","u_slinger","u_roller","u_drone","u_guard","barn","silo","silo_dmg","corn","tree","pine","flowers","pumpkins","hay_round","hay_stack","snatcher","stinger","tank","bg_front","scx","fx_ring","fx_spark","fx_stars","i_coin","i_scrap","cow","sheep","pig","chicken","cloud1","cloud2","cloud3","u_chick","u_sow","u_hound","u_wrench","u_mule","u_spinner","u_badger","u_kestrel","al_raker","al_blink","al_bastion","al_shard","t_fan","t_storm","t_coil","t_crane","t_driver","t_shroud","a_fan","a_storm","a_coil","a_crane","a_driver","a_shroud","tp_snare","tp_mine","tp_cache","tp_stake"];
   V.mode = "base"; V.parts = []; V.floats = []; V.projs = []; V.rings = []; V.rubble = []; V.shake = 0; V.t = 0;
   V.sel = null; V.ghost = null; V.paint = null; V.sim = null; V.base = null; V.theme = "p"; V.deploy = null; V.showDeploy = false; V.speed = 1; V.paused = false;
   V.cb = {}; V.fx = []; V.showRanges = false; V.showHeat = false; V.analysis = null;
@@ -74,7 +74,7 @@
   var ZC = {clamp: "#a8e8ff", stitch: "#9be26b", veil: "#c9b8ff", snare: "#d8c080", mine: "#ff9a3a", cache: "#ffd35a", stake: "#5af0ff", fuse: "#ffb040", surge: "#ffd35a"};
   function handleEvents(ev) {
     for (var i = 0; i < ev.length; i++) {
-      var e = ev[i];
+      var e = ev[i]; if (BB.FX && BB.FX.ev(e)) continue;
       if (e.k === "shot") { if (V.cb.sfx) V.cb.sfx("dshot"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
       else if (e.k === "bolt") { if (V.cb.sfx) V.cb.sfx(e.hid === "scx" ? "rail" : "pew"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
       else if (e.k === "crows") { if (V.cb.sfx) V.cb.sfx("crows"); (e.t || []).forEach(function (p) { V.puff(p[0], p[1], 12, "#2a2438", 70, 0.8); V.ring(p[0], p[1], 1.4, "#46e6d2"); }); V.shake = Math.max(V.shake, 0.3); }
@@ -96,7 +96,7 @@
     ev.length = 0;
   }
   V.update = function (dt) {
-    V.t += dt; var i;
+    V.t += dt; var i; if (BB.FX) BB.FX.update(dt);
     if (V.shake > 0) V.shake = Math.max(0, V.shake - dt);
     for (i = V.parts.length - 1; i >= 0; i--) { var p = V.parts[i]; p.l -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 25 * dt; if (p.l <= 0) V.parts.splice(i, 1); }
     for (i = V.floats.length - 1; i >= 0; i--) { var f = V.floats[i]; f.t += dt; f.y -= 14 * dt; if (f.t > 1.3) V.floats.splice(i, 1); }
@@ -110,7 +110,7 @@
   function bSprite(b, theme) { var d = C.B[b.t]; return theme === "a" ? d.aart : d.art; }
   function drawBuilding(b, theme, opts) {
     var d = C.B[b.t], x = gx + b.x * T, y = gy + b.y * T, w = d.w * T, h = d.h * T, a = theme === "a", up = b.up, n = bSprite(b, theme);
-    var alpha = up && up.total ? 0.55 : 1, hit = b.hit > 0;
+    var alpha = up && up.total ? 0.55 : 1, hit = b.hit > 0, FXo = BB.FX; if (FXo && hit && opts && opts.raid) x += FXo.bshake(b);
     if (b.t === "wall") {
       if (a) { spr("a_wall", x + T / 2, y + T + 1, T + 3, T + 5, 1); }
       else {
@@ -123,7 +123,7 @@
     if (d.kind === "trap") { if (!a || opts && opts.showTraps) { cx.globalAlpha = a ? 0.4 : 0.85; spr(d.art || "t_trap", x + T / 2, y + T, T * 1.1, T, 1); cx.globalAlpha = 1; } return; }
     if (b.t === "field" && !a) {
       cx.fillStyle = "#7b5330"; rr(x + 1, y + 2, w - 2, h - 2, 3); cx.fill(); cx.fillStyle = "#5e3d22"; for (var k = 0; k < 4; k++) cx.fillRect(x + 4, y + 6 + k * 6, w - 8, 1.5);
-      cx.globalAlpha = alpha; [[0.2, 0.55], [0.5, 0.45], [0.8, 0.55], [0.35, 0.95], [0.65, 0.95]].forEach(function (p) { spr("corn", x + w * p[0], y + h * p[1] + 6, 15 + b.l * 1.5, 24, 1); }); cx.globalAlpha = 1;
+      cx.globalAlpha = alpha; [[0.2, 0.55], [0.5, 0.45], [0.8, 0.55], [0.35, 0.95], [0.65, 0.95]].forEach(function (p, ci) { spr("corn", x + w * p[0] + (FXo ? FXo.sway(ci + b.x) : 0), y + h * p[1] + 6, 15 + b.l * 1.5, 24, 1); }); cx.globalAlpha = 1;
     } else if (b.t === "rig" && !a) { spr("silo_dmg", x + w / 2, y + h + 2, w * 1.0, h * 1.9, alpha); }
     else if (n) {
       var asp = img(n) ? img(n).naturalHeight / img(n).naturalWidth : 1, ww = w * (d.kind === "def" ? 1.15 : 1.22), cap = h * (d.kind === "def" ? 2.2 : 2.0);
@@ -131,12 +131,14 @@
       // shadow
       cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h - 1, w * 0.46, h * 0.22, 0, 0, 6.3); cx.fill();
       spr(n, x + w / 2, y + h + 2, ww, cap, alpha);
+      if (FXo) { FXo.bldOver(b, x, y, w, h); if (b.t === "tinker") FXo.tinkerOver(x, y, w, h); if (up && up.total) FXo.constructOver(b, x, y, w, h); }
       if (b.blind > 0) { cx.fillStyle = "rgba(20,16,36,.45)"; cx.beginPath(); cx.ellipse(x + w / 2, y + h * 0.55, w * 0.42, h * 0.38, 0, 0, 6.3); cx.fill(); cx.fillStyle = "#46e6d2"; cx.font = "bold 12px sans-serif"; cx.textAlign = "center"; cx.fillText("?", x + w / 2, y + h * 0.62); }
       if (b.t === "lobber" || b.t === "blaster") { /* barrel aim handled via sprite only */ }
       if (hit) { cx.globalCompositeOperation = "lighter"; spr(n, x + w / 2, y + h + 2, ww, cap, 0.45); cx.globalCompositeOperation = "source-over"; }
     }
     // collector bubble
-    if (opts && opts.bubble) { var st = opts.bubble(b); if (st) { var bob = Math.sin(V.t * 4 + b.x) * 1.5; spr(d.res === "c" ? "i_coin" : "i_scrap", x + w / 2, y - 3 + bob, 13, 13, 1); } }
+    if (V.cb.upReady && V.mode === "base" && FXo && V.cb.upReady(b) && !(opts && opts.bubble && opts.bubble(b))) FXo.upBadge(x, y, w);
+    if (opts && opts.bubble) { var st = opts.bubble(b); if (st) { if (FXo) FXo.homeReady(x, y, w, d.res); var bob = Math.sin(V.t * 4 + b.x) * 1.5; spr(d.res === "c" ? "i_coin" : "i_scrap", x + w / 2, y - 3 + bob, 13, 13, 1); } }
   }
   function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
   function hpBar(x, y, w, f, col) { cx.fillStyle = "rgba(0,0,0,.65)"; cx.fillRect(x - w / 2 - 1, y - 1, w + 2, 4.5); cx.fillStyle = col; cx.fillRect(x - w / 2, y, w * Math.max(0, f), 2.5); }
@@ -177,7 +179,7 @@
   // ---------- raid mode ----------
   function drawRaid() {
     var sim = V.sim; if (!sim) return; var wl = (function () { var m = {}; sim.bld.forEach(function (b) { if (b.t === "wall" && !b.dead) m[b.x + "," + b.y] = 1; }); return function (x, y) { return m[x + "," + y]; }; })();
-    var th = V.theme, opts = {wallAt: wl, showTraps: V.scoutTraps};
+    var th = V.theme, opts = {wallAt: wl, showTraps: V.scoutTraps, raid: 1};
     if (V.showDeploy) { var rg = C.RING * T, pulse = 0.16 + Math.sin(V.t * 5) * 0.06; cx.save(); cx.beginPath(); cx.rect(gx, gy, GW, GW); cx.rect(gx + rg, gy + rg, GW - 2 * rg, GW - 2 * rg); cx.fillStyle = "rgba(255,225,80," + pulse + ")"; cx.fill("evenodd"); cx.strokeStyle = "rgba(255,225,80,.55)"; cx.lineWidth = 1.5; cx.setLineDash([5, 4]); cx.strokeRect(gx + rg, gy + rg, GW - 2 * rg, GW - 2 * rg); cx.restore(); }
     // rubble
     sim.bld.forEach(function (b) { if (b.dead && b.kind !== "trap") { var d = C.B[b.t]; cx.fillStyle = b.kind === "wall" ? "rgba(70,50,30,.45)" : "rgba(40,30,30,.6)"; rr(gx + b.x * T + 1, gy + b.y * T + 1, d.w * T - 2, d.h * T - 2, 3); cx.fill(); if (b.kind !== "wall") { cx.fillStyle = "rgba(120,110,100,.7)"; cx.fillRect(gx + b.x * T + 3, gy + b.y * T + d.h * T - 5, 5, 3); cx.fillRect(gx + b.x * T + d.w * T - 9, gy + b.y * T + d.h * T - 8, 4, 4); } } });
@@ -206,6 +208,7 @@
   }
   var UCOL = {chick: "#ffe27a", sow: "#d99aa0", hound: "#c98a5a", wrench: "#8fe0a0", mule: "#b0a080", spinner: "#ff7a7a", badger: "#a08060", kestrel: "#9ad0ff", bruiser: "#ff9a3c", slinger: "#7fd0ff", roller: "#e8d070", drone: "#9aff7a", hero: "#ffd35a"};
   function drawUnit(u) {
+    if (BB.FX && BB.FX.unit(u)) return;
     var x = gx + u.x * T, y = gy + u.y * T, bob = Math.abs(Math.sin(V.t * 9 + u.wob)) * (u.mv ? 1.8 : 0.4), sz = u.sz * 1.2 * (u.team === "d" ? 0.95 : 1);
     if (u.mv > 0) u.mv -= 0.05;
     if (u.fly) { cx.fillStyle = "rgba(0,0,0,.22)"; cx.beginPath(); cx.ellipse(x, y + 4, sz * 0.3, sz * 0.12, 0, 0, 6.3); cx.fill(); y -= 10 + Math.sin(V.t * 6 + u.wob) * 1.5; }
@@ -235,12 +238,16 @@
   // ---------- main draw ----------
   V.draw = function () {
     if (!cx || !ground) return;
+    var FXo = BB.FX, cam = FXo && FXo.cam, z = cam ? cam.z : 1, s = sc * dpr, shk = (V.shake > 0 ? V.shake * 8 : 0) + (cam ? cam.shake : 0), sh = shk > 0 ? (Math.random() - 0.5) * shk * 2 : 0, sv = shk > 0 ? (Math.random() - 0.5) * shk * 2 : 0;
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.drawImage(ground, 0, 0);
-    var s = sc * dpr, sh = V.shake > 0 ? (Math.random() - 0.5) * V.shake * 8 : 0;
-    cx.setTransform(s, 0, 0, s, sh * s, (V.shake > 0 ? (Math.random() - 0.5) * V.shake * 8 : 0) * s);
+    if (z > 1.002) { var fx0 = cam.fx, fy0 = cam.fy; cx.setTransform(s * z, 0, 0, s * z, (sh - fx0 * (z - 1)) * s, (sv - fy0 * (z - 1)) * s); cx.drawImage(ground, 0, 0, ground.width, ground.height, 0, 0, 360, Hl); }
+    else cx.setTransform(s, 0, 0, s, sh * s, sv * s);
     if (!ready) { cx.fillStyle = "#fff"; cx.font = "bold 14px sans-serif"; cx.textAlign = "center"; cx.fillText("Loading art...", 180, Hl / 2); return; }
+    if (FXo) FXo.drawBelow();
     drawGroundProps();
+    if (FXo && V.mode === "base") FXo.drawBaseLife();
     if (V.mode === "base") drawBase(); else drawRaid();
+    if (FXo) { FXo.drawWorld(); FXo.drawLight(); FXo.drawClouds(); }
     // projectiles
     V.projs.forEach(function (q) {
       var f = q.t / q.d, x = gx + (q.x1 + (q.x2 - q.x1) * f) * T, y = gy + (q.y1 + (q.y2 - q.y1) * f) * T, a = V.theme === "a";
@@ -260,7 +267,7 @@
   var drag = null, lastDep = 0;
   function down(e) {
     if (V.cb.audio) V.cb.audio(); var t = tileXY(e.clientX, e.clientY), x = t[0], y = t[1]; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); drag = {x0: x, y0: y, moved: false, id: e.pointerId, onGhost: false};
-    if (V.mode === "raid") { if (V.cb.raidTap) V.cb.raidTap(x, y, true); return; }
+    if (V.mode === "raid") { if (BB.FX) { var oid = BB.FX.orbAt(x, y); if (oid >= 0) { if (V.cb.puTap) V.cb.puTap(oid); return; } } if (V.cb.raidTap) V.cb.raidTap(x, y, true); return; }
     if (V.paint) { V.paint.on = true; V.cb.paintAt && V.cb.paintAt(Math.floor(x), Math.floor(y)); return; }
     if (V.ghost) { var g = V.ghost, d = C.B[g.t]; if (x >= g.x - 1 && x <= g.x + d.w + 1 && y >= g.y - 1 && y <= g.y + d.h + 1) { drag.onGhost = true; drag.off = [x - g.x, y - g.y]; return; } }
   }
@@ -278,5 +285,6 @@
     if (V.ghost) { if (!d.moved && !d.onGhost) V.cb.ghostMove && V.cb.ghostMove(Math.round(x - C.B[V.ghost.t].w / 2), Math.round(y - C.B[V.ghost.t].h / 2)); return; }
     if (!d.moved) V.cb.tap && V.cb.tap(x, y);
   }
+  V.ctx = function () { return {cx: cx, gx: gx, gy: gy, Hl: Hl, spr: spr, rect: function () { return cv.getBoundingClientRect(); }}; };
   V.dims = function () { return {Hl: Hl, gy: gy, GW: GW}; };
 })();

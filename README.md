@@ -1,4 +1,4 @@
-# Barns & Bots — playable prototype v0.5.0
+# Barns & Bots — playable prototype v0.6.0
 
 Build your farm. Defend your herd. A mobile-first game prototype with a base-building and raid loop built on genre-standard mechanics (base building, builder timers, resource collectors, raids, 3 stars, trophies, leagues, co-op crew), plus the original hero-mech action battles and a 3-phase boss duel (Vorlax). Graphics were upgraded: generated sprites, juice, HUD and results screens.
 
@@ -44,6 +44,29 @@ Built on genre-standard mechanics only; every name, sprite and text is original 
 - Old replays are re-simulated under the new rules.
 - Deferred: crews and crew wars, seasons, monetization; heroes 3 and 4; troops Coilback, Treadhorn, Latch Ram, Sky Rooster; about 9 more defenses; more traps; spells Route Beacon, Pulse Wake, Sunspike; protected storage, daily-loss, vacation and beginner protection; revenge insurance; the full alien faction roster; user-saved layout slots.
 
+## What is new in v0.6.0 (game feel / juice overhaul)
+Why: playtest feedback said v0.5a was "underwhelming and not stimulating enough". The honest critique is in v06-juice-critique.md (repo root, not shipped in game/).
+- **FX engine** (js/cc_fx.js, new): pooled particles (cap 380, 170 in calm mode) with a quality governor that sheds particles if frames run long; camera shake, zoom, slow-mo and hit-stop; floating damage numbers; rings, lightning chains, laser beams, projectile trails, muzzle flashes; confetti; coins and salvage that fly from destroyed buildings to the HUD with count-up numbers and tick sounds. Visuals are event-driven from the sim, so replays and async defenses are unchanged.
+- **Units and defenses**: walk bob, squash/stretch, attack lunge and recoil, death poofs and hops, rotating defenses with muzzle flash, hero entrance, SURGE with flash, slow-mo and big VFX. Scarecrow-X's Murder of Crows is a full-screen swarm with trails, slow-mo and zoom.
+- **Impact**: hit flashes, building crack, smoke and fire stages, collapse with debris, dust and shake, chain explosions on traps, destruction bar and star pop animations.
+- **Stimulation layer (in the seeded sim, so it replays exactly)**: combo and kill-streak meter (Frenzy, Overdrive, Rampage) with a score multiplier and rising sound pitch; mid-raid power orbs the player taps (Turbo, Bubble, Pulse, Loot, Spark) with auras; a Power Surge meter filled by dealing damage, triggered by the player; rare critical hits; a visible bonus loot cache. Orb and Surge taps are recorded in the replay script. All rewards are shown, fair and free: no paid loot boxes.
+- **Rewards**: star burst, trophy roll, level-up and unlock fanfares, confetti on 3 stars, bounce and glow on ready collectables, pulsing upgrade-ready badges, daily chest animation.
+- **Living base**: wandering animals, spinning windmill, smoke, drifting clouds, swaying crops, golden-hour and night lighting (Settings > Lighting, or ?tod=day|gold|night), hammer sparks on construction, tinkers walking.
+- **Audio**: many new WebAudio SFX (weapon types, impacts, coin pings, UI taps, win and lose stingers); two original synthesized loops (calm base, intense raid); Music, Sound and Haptics (navigator.vibrate) toggles.
+- **Pacing**: starter army, direct ATTACK to Mission 1, the first raid starts about 6 seconds after load in the scripted fresh-save run (win in about 35 s), quick early upgrades, short arrow tutorial, drop-in animation and ground ring on deploy, always-visible next-goal banner, scout camera pan, THREAT meter on story missions.
+- **UI**: bolder panels with glow, open and close tweens, button press feedback, rarity colours.
+- **Accessibility**: Settings > Reduced flashing removes screen flashes, slow-mo, hit-stop and zoom, cuts shake to 25%, and halves particle caps.
+- Saves from v0.5 load unchanged; new settings fields get defaults.
+
+### v0.6 deferred and known gaps (honest list)
+- Story "escalating difficulty" is only a THREAT meter shown on the existing 10 hand-crafted missions; no new generated difficulty curve or mission rebalance was done.
+- Frame rate was measured only in headless desktop Chrome at 390x844 (about 60 fps). Not tested on a real mid-range phone; the quality governor and calm mode are the safety net.
+- Audio and haptics were checked for errors only (nothing was heard or felt by a person); the music loops are simple and short, and may need mixing by ear.
+- No human playtest of the new feel yet; tuning values (shake, slow-mo, orb frequency, combo window) are first guesses.
+- Weapon effects are procedural canvas drawing, not hand-animated sprite sheets; troop animation is transform-based (bob, squash, lunge), not frame-by-frame.
+- Day/night lighting is a colour overlay, not per-building shadows.
+- Orb, combo, Power Surge and tier names are working labels (see LEGAL-NOTES). The earlier v0.5 deferred list still applies.
+
 ## Honest depth assessment
 The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) is complete and playable end to end, in a small scale: 10 Core levels (a real genre game has more), 16 building types (incl. fences), 4 troop types, 4 spells, 2 raid heroes, 6 trophy leagues. Opponent bases are procedural, not other players. Balance had a first pass in v0.4.0 (bot-only); it is still untested with real players.
 
@@ -53,6 +76,7 @@ The loop (collect, build, train, scout, raid, loot, trophies, defend, upgrade) i
 - TRADEMARK: "Barns & Bots" has NOT been searched. Run a trademark search (USPTO TESS/TSDR, EUIPO, WIPO Global Brand Database, app stores) before using the name publicly or spending money on branding.
 - Gems, shop and Harvest Pass are mock features: no real payments are processed. Real store release needs a privacy policy and platform-policy checks.
 - v0.5 NAMES ARE WORKING LABELS pending trademark clearance: Rivet Chick, Scrap Sow, Rusthound, Wrenchling, Clod Mule, Shearspinner, Burrow Badger, Kite Kestrel, Seed Fan, Stormpost, Haywire Coil, Harpoon Crane, Fence Driver, Chaff Shroud, Snare Reel, Chaff Mine, Decoy Cache, Pulse Stake, Ground Clamp, Fence Stitch, Fog Veil and the alien names (Raker, Blink, Bastion, Shard). None has been searched. The v0.5 design came from a mechanics-only study; no names, art or text were copied. Search each name before public use and rename any that collide.
+- v0.6 NAMES ARE WORKING LABELS pending trademark clearance: Turbo Orb, Bubble Orb, Pulse Orb, Loot Orb, Spark Orb, Frenzy, Overdrive, Rampage, Power Surge, Murder of Crows (Scarecrow-X ultimate). All music and sound effects are synthesized in code at runtime (no samples, no third-party audio). Effects and animations are original procedural drawing.
 - This is a prototype, not legal advice.
 
 Plain HTML/CSS/JS. No build step, no libraries, no CDN, no accounts, $0.
@@ -75,7 +99,7 @@ Install-as-app and the service worker need HTTPS or localhost.
 
 ## Debug and testing
 Home screen gear icon: timer speed (Real / x60 / Instant), reward x5, +coins/+gems/+salvage, unlock all missions, reset save, playtest data viewer (copy/download JSON).
-URL flags: ?bot=1 (auto-pilot bot), ?fast=N (battle speed). Console: window.__bb.report().
+URL flags: ?bot=1 (auto-pilot bot), ?fast=N (battle speed), ?tod=day|gold|night (lighting). Console: window.__bb.report().
 
 ## Playtest analytics
 Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 events; save is bb_save_v1). Settings > Playtest data shows: sessions, average session length, days played, D1/D7 retention (measured from first-day to next-day returns on the same device), mission starts/wins/win rate per mission, upgrade moments. Nothing is sent anywhere. To collect from friends, ask them to tap "copy JSON" and send it to you.
@@ -87,7 +111,7 @@ Stored only in this browser (localStorage key bb_analytics_v1, capped at 3000 ev
 Google Play needs a one-time US$25 developer account. Check AI-art ownership (see LEGAL-NOTES) and store policies first.
 
 ## Files
-index.html, manifest.webmanifest, sw.js (cache bb-proto-v7; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
+index.html, manifest.webmanifest, sw.js (cache bb-proto-v8; bump when files change), css/, js/ (data.js tuning tables, store.js save+analytics, audio.js WebAudio SFX, battle.js hero-mech battles, ui.js screens, cc_data.js base/troop/league tables, cc_data2.js Core 1-10 tables + v0.5 troops/defenses/traps/spells, cc_gen.js procedural outposts, cc_sim.js raid simulation, cc_view.js base and raid drawing, cc_fx.js juice and FX engine (particles, camera, loot fly, music hooks), cc_ui.js and cc_panels.js base screens, main.js boot), assets/ (generated sprites), img/ (generated art), icons/. Test hooks: window.__cc and window.__ccFast.
 
 ## Not built yet
-Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, music (SFX only), real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.
+Real multiplayer (the Ranch Crew, other raiders and donations are simulated), real opponents, Core levels 11-15, base layouts sharing, crew wars, cosmetics, real payments/ads, cloud save, localization, store-ready Capacitor project, tuned balance and a real trademark/legal review.

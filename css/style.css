@@ -267,3 +267,81 @@ table.t td,table.t th{padding:3px 4px;border-bottom:1px solid #26305e;text-align
 .card.tools .btn.on{outline:2px solid #ffe65a}
 .card.tools .muted{font-size:11px;font-weight:900}
 .card.funnel small{display:block;line-height:1.45}
+
+/* ===== v0.6 juice ===== */
+#fxo{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:60}
+.bump{animation:bumpA .32s cubic-bezier(.2,1.8,.4,1)}
+@keyframes bumpA{0%{transform:scale(1)}40%{transform:scale(1.28);filter:brightness(1.5)}100%{transform:scale(1)}}
+.pop{animation:popA .55s cubic-bezier(.2,1.8,.4,1) both}
+@keyframes popA{0%{transform:scale(.1) rotate(-30deg);opacity:0}60%{transform:scale(1.45) rotate(8deg);opacity:1;filter:drop-shadow(0 0 8px #ffd35a)}100%{transform:scale(1) rotate(0)}}
+/* modals + panels tween */
+.mbox{animation:mboxIn .28s cubic-bezier(.2,1.4,.4,1) both}
+.mbox.out{animation:mboxOut .15s ease-in both}
+@keyframes mboxIn{from{transform:translateY(30px) scale(.82);opacity:0}to{transform:none;opacity:1}}
+@keyframes mboxOut{to{transform:translateY(14px) scale(.9);opacity:0}}
+#modal:not(.hidden){animation:fadeIn .2s ease both}
+@keyframes fadeIn{from{background-color:rgba(0,0,0,0)}}
+.b-panel:not(.hidden){animation:panelIn .26s cubic-bezier(.2,1.1,.4,1) both}
+@keyframes panelIn{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.mbox{box-shadow:0 10px 40px #000,0 0 22px rgba(255,200,90,.28),inset 0 0 0 2px rgba(255,255,255,.1)!important}
+.mbox h1.win{text-shadow:0 3px 0 #8a5405,0 0 18px rgba(255,211,90,.75);animation:titleGlow 1.6s ease-in-out infinite}
+@keyframes titleGlow{50%{filter:brightness(1.25)}}
+/* button press feedback */
+.btn,.attack-btn,.side-btn,.tb,.b-nav button,.gear{transition:transform .08s,filter .12s}
+.btn:active,.side-btn:active,.tb:active,.b-nav button:active,.gear:active{transform:translateY(2px) scale(.94);filter:brightness(1.25)}
+.attack-btn:active{transform:translateY(3px) scale(.96);filter:brightness(1.2)}
+.attack-btn{animation:atkPulse 1.5s ease-in-out infinite}
+@keyframes atkPulse{50%{box-shadow:0 5px 0 #7a140a,0 8px 12px rgba(0,0,0,.4),0 0 24px rgba(255,120,80,.8)}}
+.side-btn.ready{animation:giftBounce 1s ease-in-out infinite;box-shadow:0 3px 0 #1c2650,0 0 18px rgba(255,211,90,.9)}
+@keyframes giftBounce{0%,100%{transform:translateY(0)}30%{transform:translateY(-6px) rotate(-4deg)}60%{transform:translateY(0) rotate(3deg)}}
+.badge{animation:badgePulse 1.1s ease-in-out infinite}
+@keyframes badgePulse{50%{transform:scale(1.25);box-shadow:0 0 10px #ff4a3a}}
+.b-goal{border-color:#ffd35a;box-shadow:0 0 14px rgba(255,181,49,.55);animation:goalGlow 2s ease-in-out infinite;font-size:12.5px;padding:6px 12px;background:linear-gradient(rgba(40,30,70,.94),rgba(14,18,40,.94))}
+@keyframes goalGlow{50%{box-shadow:0 0 22px rgba(255,211,90,.95)}}
+/* tutorial arrow */
+.tut-arrow{position:fixed;z-index:90;transform:translate(-50%,-100%);pointer-events:none;text-align:center;animation:arBob .7s ease-in-out infinite}
+.tut-arrow b{display:inline-block;background:#ffd35a;color:#3a1d06;font:900 13px "Arial Black",Impact,sans-serif;padding:6px 12px;border-radius:12px;border:2px solid #fff;box-shadow:0 3px 0 #8a5405,0 0 18px rgba(255,211,90,.9);white-space:nowrap}
+.tut-arrow i{display:block;margin:0 auto;width:0;height:0;border:10px solid transparent;border-top:14px solid #ffd35a;filter:drop-shadow(0 2px 0 #8a5405)}
+.tut-arrow.below{transform:translate(-50%,0)}.tut-arrow.below i{order:-1;border-top:0;border-bottom:14px solid #ffd35a}.tut-arrow.below{display:flex;flex-direction:column}
+@keyframes arBob{50%{margin-top:-9px}}
+.tut-arrow.below{animation-name:arBobB}@keyframes arBobB{50%{margin-top:9px}}
+/* raid HUD */
+.r-pbar{position:relative;height:10px;margin:3px auto 0;width:78%;border-radius:6px;background:rgba(0,0,0,.55);border:2px solid #fff;overflow:visible;box-shadow:0 0 8px rgba(0,0,0,.5)}
+.r-pbar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#ff8a3a,#ffd35a);transition:width .35s cubic-bezier(.2,1.2,.4,1)}
+.r-pbar.h1 i{background:linear-gradient(90deg,#ffd35a,#9be26b)}.r-pbar.h2 i{background:linear-gradient(90deg,#9be26b,#5af0ff);box-shadow:0 0 12px #5af0ff}
+.r-pbar u{position:absolute;top:-4px;bottom:-4px;width:3px;background:#fff;border-radius:2px;opacity:.85}.r-pbar u.m1{left:50%}.r-pbar u.m2{right:0}
+#r-pct.bump,#r-stars img.pop{transform-origin:center}
+.r-combo{position:absolute;z-index:8;left:50%;top:calc(104px + env(safe-area-inset-top));transform:translateX(-50%);text-align:center;pointer-events:none;--cc:#fff}
+.r-combo b{display:block;font:900 38px "Arial Black",Impact,sans-serif;color:var(--cc);text-shadow:0 3px 0 rgba(0,0,0,.65),0 0 18px var(--cc);line-height:1}
+.r-combo span{display:block;font:900 13px "Arial Black",Impact,sans-serif;letter-spacing:2px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.7),0 0 10px var(--cc)}
+.r-combo i{display:block;width:90px;height:5px;margin:3px auto 0;background:rgba(0,0,0,.55);border-radius:3px;overflow:hidden}.r-combo i u{display:block;height:100%;background:var(--cc);box-shadow:0 0 8px var(--cc)}
+.r-combo.hit b{animation:comboHit .3s cubic-bezier(.2,2,.4,1)}
+@keyframes comboHit{0%{transform:scale(1.9)}100%{transform:scale(1)}}
+.r-combo[data-tier="2"] b,.r-combo[data-tier="3"] b{font-size:46px;animation:comboHit .3s cubic-bezier(.2,2,.4,1),comboShake .25s linear infinite}
+@keyframes comboShake{0%,100%{translate:0 0}25%{translate:2px -1px}75%{translate:-2px 1px}}
+.hidden.r-combo,.r-combo.hidden,.r-ps.hidden{display:none!important}
+.r-ps{position:absolute;z-index:8;right:8px;bottom:calc(84px + env(safe-area-inset-bottom));width:98px;height:46px;border-radius:14px;border:3px solid #cdb6ff;background:rgba(30,20,70,.88);overflow:hidden;color:#fff;font:900 11px "Arial Black",Impact,sans-serif;text-shadow:0 2px 0 rgba(0,0,0,.7);box-shadow:0 3px 0 #2a1a60}
+.r-ps .psf{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#7a4dff,#d9b8ff);transition:width .15s linear}
+.r-ps b{position:relative;display:block;line-height:40px}
+.r-ps.ready{animation:psReady .55s ease-in-out infinite;border-color:#fff}
+@keyframes psReady{50%{transform:scale(1.12);box-shadow:0 0 28px #d9b8ff,0 0 8px #fff}}
+.r-ps.active{border-color:#ffd35a;box-shadow:0 0 22px #ffd35a}.r-ps.active .psf{background:linear-gradient(90deg,#ffb531,#fff1b0)}
+/* chest + threat */
+.chestbox{text-align:center;margin:4px 0 6px}.chestbox b{display:block;font:900 12px "Arial Black",sans-serif;color:#ffd77a;letter-spacing:1px}
+.chest{display:inline-block;position:relative;width:74px;height:54px;border-radius:8px 8px 10px 10px;background:linear-gradient(#b8742a,#7a4210);border:3px solid #ffd35a;box-shadow:0 0 22px rgba(255,211,90,.7);animation:chestWob 1.2s ease-in-out infinite}
+.chest:before{content:"";position:absolute;left:-3px;right:-3px;top:-14px;height:20px;border-radius:30px 30px 4px 4px;background:linear-gradient(#d68a3a,#9a5a1a);border:3px solid #ffd35a}
+.chest:after{content:"";position:absolute;left:50%;top:10px;width:14px;height:16px;margin-left:-7px;border-radius:3px;background:#ffd35a;border:2px solid #8a5405}
+@keyframes chestWob{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg) scale(1.05)}75%{transform:rotate(6deg) scale(1.05)}}
+.sc-threat{text-align:center;font:900 11px "Arial Black",sans-serif;color:#ffb0a0;margin:4px 0 2px;letter-spacing:1px}
+.sc-threat i{display:inline-block;width:14px;height:8px;margin-left:3px;border-radius:2px;background:#3a2a3a;border:1px solid #6a4a5a}.sc-threat i.on{background:linear-gradient(#ff7a5a,#d62f1a);box-shadow:0 0 6px #ff5a3a}
+.sc-name b{text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 12px rgba(255,211,90,.6)}
+/* results */
+.bigstars2 img.pop{animation:popA .6s cubic-bezier(.2,1.8,.4,1) both}
+.mbox .loot span:nth-child(even){color:#ffd77a;font-weight:900}
+/* rarity */
+.rar-common{--rc:#b9c4e8}.rar-rare{--rc:#4aa8ff}.rar-epic{--rc:#c06bff}.rar-legend{--rc:#ffb531}
+.hcard,.card.gold{box-shadow:0 0 12px rgba(255,200,90,.22)}
+.tb.sel{box-shadow:0 0 14px #ffd35a,0 0 4px #fff;transform:translateY(-3px)}
+.tb.zero{opacity:.45}
+@media (prefers-reduced-motion:reduce){.attack-btn,.b-goal,.badge,.side-btn.ready,.mbox h1.win,.chest{animation:none}}
+body.calm .attack-btn,body.calm .b-goal,body.calm .r-ps.ready,body.calm .side-btn.ready,body.calm .mbox h1.win{animation:none}

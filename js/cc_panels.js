@@ -125,9 +125,9 @@
   }
   function dailyModal() {
     var c = cc(); if (c.daily.last === day()) return; var i = c.daily.streak % 7, r = C.DAILY[i];
-    X.modal('<h1 class="win" style="font-size:22px">DAILY REWARD</h1><div class="card gold" style="text-align:center"><h4>Day ' + (i + 1) + '</h4><div style="font-size:18px;margin:6px 0">' + reward(r) + '</div></div><div class="btns"><button class="btn" id="m-no">CLAIM</button></div>'); $("m-no").onclick = function () { claimDaily(); X.close(); };
+    X.modal('<h1 class="win" style="font-size:22px">DAILY REWARD</h1><div class="chestbox"><i class="chest"></i><b>STREAK ' + (c.daily.streak + 1) + '</b></div><div class="card gold" style="text-align:center"><h4>Day ' + (i + 1) + '</h4><div style="font-size:18px;margin:6px 0">' + reward(r) + '</div></div><div class="btns"><button class="btn" id="m-no">CLAIM</button></div>'); $("m-no").onclick = function () { claimDaily(); X.close(); };
   }
-  function claimDaily() { var c = cc(); if (c.daily.last === day()) return; var r = C.DAILY[c.daily.streak % 7]; grant(r); c.daily.last = day(); c.daily.streak++; c.pass.pts += 20; BB.sfx("upgrade"); X.toast("Daily reward: " + reward(r)); BB.track("cc_daily", {d: c.daily.streak}); X.save(); X.hud(); if (cur) render(false); }
+  function claimDaily() { var c = cc(); if (c.daily.last === day()) return; var r = C.DAILY[c.daily.streak % 7]; grant(r); c.daily.last = day(); c.daily.streak++; c.pass.pts += 20; BB.sfx("chest"); X.toast("Daily reward: " + reward(r)); if (BB.FX) { BB.FX.chest(c.daily.streak); } BB.track("cc_daily", {d: c.daily.streak}); X.save(); X.hud(); if (cur) render(false); }
   X.debugHTML = function () {
     return '<div class="card dbg"><h4>Base debug</h4><div><button class="btn sec" id="cd-raid">Trigger raid on me</button><button class="btn sec" id="cd-reset">Reset base (new save)</button><button class="btn sec" id="cd-army">Fill army</button><button class="btn sec" id="cd-res">Fill storage</button></div></div>';
   };
@@ -171,7 +171,7 @@
     base.addEventListener("pointerdown", function (e) { if (e.target.closest && e.target.closest("#b-panel")) X.panelBusy = true; }, true);
     window.addEventListener("pointerup", function () { X.panelBusy = false; }, true);
     [].forEach.call(document.querySelectorAll("#b-nav button[data-p]"), function (b) { b.onclick = function () { BB.audioInit && BB.audioInit(); openPanel(b.dataset.p); }; });
-    $("btn-hero").onclick = toHero; $("btn-base").onclick = function () { BB.sfx("click"); X.show(); }; $("btn-attack").onclick = function () { BB.audioInit && BB.audioInit(); BB.sfx("click"); X.closePanel(); attackMenu(); BB.track("cc_attack_menu", {}); };
+    $("btn-hero").onclick = toHero; $("btn-base").onclick = function () { BB.sfx("click"); X.show(); }; $("btn-attack").onclick = function () { BB.audioInit && BB.audioInit(); BB.sfx("click"); X.closePanel(); if (cc().tut === 0) { cc().tut = 1; BB.FX && BB.FX.arrowOff(); X.startStory(1); return; } attackMenu(); BB.track("cc_attack_menu", {}); };
     $("b-log").onclick = function () { BB.sfx("click"); logModal(); }; $("b-gear").onclick = function () { BB.audioInit && BB.audioInit(); BB.sfx("click"); BB.UI.settings(); };
     $("b-mute").onclick = function () { BB.toggleMute(); }; $("r-mute").onclick = function () { BB.toggleMute(); }; BB.syncMute(); $("r-end").onclick = X.endBattle; $("r-speed").onclick = function () { X.setSpeed(); BB.sfx("click"); };
     $("b-daily").onclick = function () { BB.sfx("click"); dailyModal(); };
