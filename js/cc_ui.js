@@ -1,7 +1,7 @@
 "use strict";
 // ---- Base + raid game logic and screen flow (panels live in cc_panels.js) ----
 (function () {
-  var C = BB.CC, G = BB.CCGen, Sim = BB.CCSim, V = BB.CCV, S = BB.S, N = C.GRID;
+  var C = BB.CC, G = BB.CCGen, Sim = BB.CCSim, V = BB.CCV, S = BB.S, N = C.GRID, S2 = BB.CCSim;
   var $ = function (id) { return document.getElementById(id); };
   var X = BB.CCUI = {}, cc = null, raid = null, lastSave = 0, ghostFor = null;
   var FAKE = ["Tex Harlan", "Bramble", "Lola Reyes", "Farmer Quill", "Juniper", "Old Gus", "Mags Turner", "Piper", "Hollis", "Wren", "Dusty", "Clover"];
@@ -16,13 +16,15 @@
   function fresh() {
     var n = Date.now(), id = 0;
     function b(t, x, y, l) { return {id: ++id, t: t, x: x, y: y, l: l || 1, up: null, st: 0, lt: n}; }
-    return {v: 1, nid: 20, bld: [b("core", 10, 9), b("barn", 14, 9), b("field", 6, 9), b("tinker", 14, 13), b("camp", 6, 13), b("train", 10, 14), b("blaster", 15, 5)],
+    return {v: 2, nid: 20, bld: [b("core", 10, 9), b("barn", 14, 9), b("field", 6, 9), b("tinker", 14, 13), b("camp", 6, 13), b("train", 10, 14), b("blaster", 15, 5)],
       army: {}, queue: [], qLast: n, spells: {}, ulv: {slinger: 1, bruiser: 1, roller: 1, drone: 1}, lab: null, heroHp: 1, heroT: n, hero: "bale", hh: {},
       crew: {units: {}, req: null, reqAt: 0, don: {}, log: []}, trophies: 0, shield: 0, log: [], unseen: 0, story: {}, daily: {last: "", streak: 0}, quests: {day: "", prog: {}, claimed: {}},
-      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null};
+      ach: {claimed: {}}, pass: {pts: 0, prem: false, claimed: {}}, stats: {}, nextRaid: n + 8 * 60000, seen: {}, last: n, rep: [], lastRaid: null, guard: 0, prevLayout: null};
   }
   X.ensure = function () {
-    if (!S.cc) S.cc = fresh(); cc = S.cc; var f = fresh(); for (var k in f) if (cc[k] === undefined) cc[k] = f[k]; return cc;
+    if (!S.cc) S.cc = fresh(); cc = S.cc; var f = fresh(); for (var k in f) if (cc[k] === undefined) cc[k] = f[k];
+    if (!cc.v || cc.v < 2) { cc.v = 2; cc.guard = 0; cc.prevLayout = null; if (cc.log) cc.log.forEach(function (e) { if (e && e.base && !e.base.fh) e.base.fh = e.fh || 1; }); BB.track("cc_migrate_v2", {}); }
+    return cc;
   };
   X.cc = function () { return cc; };
   // ---------- heroes ----------
@@ -56,6 +58,8 @@
   X.crewCap = function () { return done("crewhall").reduce(function (a, b) { return a + C.B.crewhall.cap[b.l]; }, 0); };
   X.crewUsed = function () { var h = 0; for (var k in cc.crew.units) h += (cc.crew.units[k] || 0) * (C.U[k] ? C.U[k].h : 1); return h; };
   X.spellN = function () { var n = 0; for (var k in cc.spells) n += cc.spells[k]; return n; };
+  X.spellE = function () { var n = 0; for (var k in cc.spells) n += (cc.spells[k] || 0) * (C.SP[k] ? C.SP[k].e || 1 : 1); return n; };
+  X.spellCap = function () { return C.SPCAPE[Math.min(C.SPCAPE.length, X.coreL()) - 1] || 2; };
   X.grid = function (ex) { var o = []; for (var i = 0; i < N; i++) o.push(new Array(N).fill(0)); cc.bld.forEach(function (b) { if (b.id === ex) return; var d = C.B[b.t]; for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) o[b.y + j][b.x + k] = b.id; }); return o; };
   function fits(t, x, y, ex) {
     var d = C.B[t]; if (x < C.RING || y < C.RING || x + d.w > N - C.RING || y + d.h > N - C.RING) return false; var g = X.grid(ex);
@@ -91,9 +95,9 @@
     if (cc.shield && cc.shield < now) cc.shield = 0;
   }
   function fillCrew() {
-    var cap = X.crewCap(), used = X.crewUsed(), pat = ["bruiser", "slinger", "slinger", "roller", "drone", "slinger"], i = 0, got = [];
+    var cap = X.crewCap(), used = X.crewUsed(), pat = ["bruiser", "slinger", "slinger", "roller", "drone", "slinger", "chick", "hound"], i = 0, got = [];
     cc.crew.req = null; cc.crew.reqAt = 0;
-    while (i < 40) { var k = pat[i % pat.length], mem = C.CREWMEM[(i * 3) % C.CREWMEM.length]; i++; var h = C.U[k].h; if (used + h > cap) { if (k === "slinger" && used + 1 > cap) break; continue; } if (k === "roller" && X.coreL() < 2) continue; if (k === "drone" && X.coreL() < 3) continue;
+    while (i < 40) { var k = pat[i % pat.length], mem = C.CREWMEM[(i * 3) % C.CREWMEM.length]; i++; var h = C.U[k].h; if (used + h > cap) { if (k === "slinger" && used + 1 > cap) break; continue; } if (C.U[k].tb > X.coreL()) continue;
       cc.crew.units[k] = (cc.crew.units[k] || 0) + 1; used += h; got.push(mem.n + " sent a " + C.U[k].name); }
     cc.crew.log = got.slice(0, 6).concat(cc.crew.log).slice(0, 12); X.toast("Your crew filled the Crew Barn!"); X.save();
   }
@@ -109,7 +113,7 @@
     $("bv-coins").textContent = X.fmt(S.coins); $("bv-salv").textContent = X.fmt(S.salv); $("bv-gems").textContent = X.fmt(S.gems);
     $("bc-coins").style.width = Math.min(100, S.coins / X.coinCap() * 100) + "%"; $("bc-salv").style.width = Math.min(100, S.salv / X.salvCap() * 100) + "%";
     var L = C.league(cc.trophies); $("b-league").innerHTML = '<i class="lg" style="background:' + L.col + '"></i><b>' + cc.trophies + "</b><small>" + L.n + "</small>";
-    var sh = cc.shield > Date.now() ? "\u{1F6E1} " + C.fmtT((cc.shield - Date.now()) / 60000) : ""; $("b-shield").textContent = sh; $("b-shield").style.display = sh ? "" : "none";
+    var sh = cc.shield > Date.now() ? "\u{1F6E1} Shield " + C.fmtT((cc.shield - Date.now()) / 60000) : cc.guard > Date.now() ? "Guard " + C.fmtT((cc.guard - Date.now()) / 60000) : ""; $("b-shield").textContent = sh; $("b-shield").style.display = sh ? "" : "none";
     $("b-tink").innerHTML = "<b>" + X.freeTinker() + "/" + X.tinkers() + "</b> tinkers free";
     var q = cc.bld.filter(function (b) { return b.up; }).sort(function (a, b) { return (a.up.total - a.up.done) - (b.up.total - b.up.done); }), h = "";
     q.forEach(function (b) { var rem = b.up.total - b.up.done, g = BB.skipGems(rem); h += '<button class="chip" data-sel="' + b.id + '"><img src="assets/' + (C.B[b.t].art || (b.t === "field" ? "corn" : "silo_dmg")) + '.webp" alt=""><span>' + C.B[b.t].name.split(" ")[0] + " " + C.fmtT(rem) + '</span><i class="gm" data-skip="' + b.id + '">\u25C6' + g + "</i></button>"; });
@@ -121,7 +125,7 @@
   };
   function goalText() {
     if (!cc.stats.attacks) { var hs = X.housed(); if (!hs && !(cc.army.slinger || cc.army.bruiser)) return "Next: open ARMY and train your first troops"; return "Next: tap ATTACK and clear Campaign Mission 1"; }
-    var core = bt("core")[0]; if (core && !core.up && core.l < 4) { var c = C.B.core.c[core.l]; return "Next goal: upgrade the Homestead Core to L" + (core.l + 1) + " (" + X.fmt(c) + " coins) to unlock new buildings"; }
+    var core = bt("core")[0]; if (core && !core.up && core.l < C.CORE_MAX) { var c = C.B.core.c[core.l]; return "Next goal: upgrade the Homestead Core to L" + (core.l + 1) + " (" + X.fmt(c) + " coins) to unlock new buildings"; }
     if (cc.daily.last !== day()) return "Next: claim today's daily reward in TASKS";
     return "Next goal: reach " + (C.LEAGUES[C.LEAGUES.indexOf(C.league(cc.trophies)) + 1] || C.LEAGUES[5]).min + " trophies for the next league";
   }
@@ -179,12 +183,14 @@
     var el = $("b-sel"), b = V.sel; if (V.ghost || V.paint) return; if (!b) { el.classList.add("hidden"); el.innerHTML = ""; return; }
     var d = C.B[b.t], h = "", info = "", lv = b.l;
     if (b.up) { info = "Under construction. " + C.fmtT(b.up.total - b.up.done) + " left."; }
-    else if (d.kind === "def") info = "Damage " + Math.round(d.dps * C.LV[lv] * 1.3) + "/s &middot; range " + d.rng + " &middot; hits " + (d.g && d.a ? "ground + air" : d.g ? "ground only" : "air only") + " &middot; HP " + Math.round(d.hp * C.LV[lv]);
+    else if (d.kind === "def" && d.sup) info = "Support &middot; range " + d.rng + " &middot; ranged hits on nearby defenses do 30% less &middot; HP " + Math.round(d.hp * C.LV[lv - 1 < 0 ? 0 : lv])
+    else if (d.kind === "def") info = (d.spec ? C.SPECTXT[d.spec] + " &middot; " : "") + "Damage " + Math.round(d.dps * C.LV[lv] * 1.3) + "/s &middot; range " + d.rng + " &middot; hits " + (d.g && d.a ? "ground + air" : d.g ? "ground only" : "air only") + " &middot; HP " + Math.round(d.hp * C.LV[lv]);
+    else if (d.kind === "trap") info = (C.TRAPTXT[d.tk || "rake"] || d.d) + " &middot; hidden from raiders until they scout it"
     else if (d.kind === "col") info = "Makes " + d.rate[lv] + "/min &middot; holds " + X.fmt(b.st || 0) + "/" + X.fmt(d.cap[lv]);
     else if (d.kind === "sto") info = "Capacity " + X.fmt(d.cap[lv]) + " &middot; raiders can loot a share";
     else if (d.kind === "camp") info = "Army housing +" + d.cap[lv];
     else if (d.kind === "crew") info = "Holds " + d.cap[lv] + " housing of crew troops (" + X.crewUsed() + "/" + X.crewCap() + ")";
-    else if (d.kind === "core") info = "Level " + lv + " &middot; unlocks buildings up to Core L" + Math.min(4, lv + 1);
+    else if (d.kind === "core") info = "Level " + lv + " &middot; unlocks buildings up to Core L" + Math.min(C.CORE_MAX, lv + 1);
     else info = d.d;
     h += '<div class="sn"><b>' + d.name + " L" + Math.max(lv, b.up ? b.up.to : lv) + "</b><small>" + info + '</small></div><div class="sb">';
     if (b.up) { var g = BB.skipGems(b.up.total - b.up.done); h += '<button class="btn blue" data-skip="' + b.id + '">\u26A1 ' + g + " \u25C6</button>"; }
@@ -199,7 +205,7 @@
     el.classList.remove("hidden"); el.innerHTML = h + "</div>"; X._selId = b.id;
   };
   function canUp(b) {
-    var d = C.B[b.t], l = b.l; if (d.kind === "wall") return "Use Upgrade All in ARMY \u2192 Fences"; var cap = b.t === "core" ? 4 : X.coreL(); if (l >= cap) return b.t === "core" ? "Max level" : "Upgrade the Core first"; if (l >= 4) return "Max level";
+    var d = C.B[b.t], l = b.l; if (d.kind === "wall") return "Use Upgrade All in ARMY \u2192 Fences"; var cap = b.t === "core" ? C.CORE_MAX : X.coreL(); if (l >= cap) return b.t === "core" ? "Max level" : "Upgrade the Core first"; if (l >= C.CORE_MAX) return "Max level";
     if (S.coins < d.c[l] || S.salv < d.s[l]) return "Need " + (S.coins < d.c[l] ? X.fmt(d.c[l]) + " coins" : d.s[l] + " salvage"); if (X.freeTinker() <= 0) return "Tinkers busy"; return true;
   }
   X.doUp = function (b) {
@@ -213,37 +219,116 @@
   X.byId = function (id) { return cc.bld.filter(function (b) { return b.id === +id; })[0]; };
   X.startMove = function (b) { var d = C.B[b.t]; V.sel = null; V.ghost = {t: b.t, x: b.x, y: b.y, ok: true, moveId: b.id, l: b.l}; ghostBar(); };
 
+  // ---------- practice raid on your own base ----------
+  function practiceArmy() {
+    var cl = X.coreL(), o = {}, base = {slinger: 20, chick: 10, bruiser: 4, roller: 3, sow: 2, drone: 3, hound: 3, wrench: 2, mule: 3, spinner: 3, badger: 3, kestrel: 3};
+    C.UORDER.forEach(function (k) { if (base[k] && C.U[k].tb <= cl) o[k] = base[k]; }); return o;
+  }
+  function practiceSpells() {
+    var cl = X.coreL(), o = {}; C.SPORDER.forEach(function (k) { if (C.SP[k].unl <= cl) o[k] = 1; }); return o;
+  }
+  X.startPractice = function () {
+    if (cc.bld.filter(function (b) { return C.B[b.t].kind === "def"; }).length === 0) { BB.sfx("deny"); X.toast("Build a defense first, then test your base"); return; }
+    var b = defBase(true); b.name = "Your base (practice)"; b.fh = X.coreL(); b.tw = 0; b.tl = 0; b.seed = 7; b.practice = true; b.theme = "p";
+    BB.track("cc_practice_start", {fh: b.fh}); X.startScout(b, "practice");
+  };
+  // ---------- base tools: ranges, fence check, presets ----------
+  X.toggleRanges = function () { V.showRanges = !V.showRanges; BB.sfx("click"); };
+  X.checkFences = function () {
+    var a = S2.analyze(cc.bld); V.analysis = a; V.analysisT = Date.now(); var n = a.sealed + a.exposed;
+    var msg = a.walls === 0 ? "No fences yet. Build a ring to make compartments." : "Compartments " + a.comps + " | sealed buildings " + a.sealed + "/" + n + " | gap tiles " + a.gaps.length + " | Core " + (a.coreSealed ? "sealed" : "EXPOSED");
+    X.toast(msg); BB.track("cc_fence_check", {comps: a.comps, gaps: a.gaps.length, core: a.coreSealed ? 1 : 0}); return a;
+  };
+  X.fenceSummary = function () {
+    var a = V.analysis; if (!a) return "Tap CHECK FENCES to tint sealed (green) and exposed (red) buildings and mark one-tile gaps.";
+    var n = a.sealed + a.exposed; return "<b>" + a.comps + "</b> compartment" + (a.comps === 1 ? "" : "s") + " &middot; <b>" + a.sealed + "/" + n + "</b> sealed &middot; <b>" + a.gaps.length + "</b> gap tile" + (a.gaps.length === 1 ? "" : "s") + " &middot; Core <b>" + (a.coreSealed ? "sealed" : "exposed") + "</b>";
+  };
+  var PRESETS = {
+    farm: {n: "Farm", rings: [5, 8], zone: {sto: [0], def: [0, 1], col: [1, 2], camp: [1], train: [1], lab: [1], work: [1], crew: [0], trap: [1]}, tg: {sto: 2.7, def: 3.8, col: 7, camp: 6.5, train: 6.5, lab: 6.5, work: 6.5, crew: 3.8, trap: 6}},
+    trophy: {n: "Trophy", rings: [4, 6, 8], zone: {sto: [3, 2], def: [0, 1], col: [2, 3], camp: [2], train: [2], lab: [2], work: [2], crew: [1], trap: [1, 2]}, tg: {sto: 9, def: 3.5, col: 7.5, camp: 7, train: 6.5, lab: 6.5, work: 6.5, crew: 4, trap: 5.5}},
+    fort: {n: "Fortress", rings: [7, 5, 3], zone: {sto: [0], def: [0, 1], col: [0, 1], camp: [1], train: [1], lab: [1], work: [1], crew: [0], trap: [3, 2]}, tg: {sto: 2.7, def: 4, col: 4.8, camp: 5, train: 5, lab: 5, work: 5, crew: 3.5, trap: 8.5}}
+  };
+  X.PRESETS = PRESETS;
+  var presetN = 0;
+  X.applyPreset = function (key) {
+    var P = PRESETS[key]; if (!P) return; if (raid) return;
+    var snap = cc.bld.map(function (b) { return {id: b.id, x: b.x, y: b.y}; });
+    var occ = []; for (var y = 0; y < N; y++) occ.push(new Array(N).fill(0));
+    var seed = (++presetN) * 7919 + key.length * 131 + cc.bld.length; function r() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+    var CEN = 11.5, pos = {};
+    function free(x, y, w, h) { if (x < C.RING || y < C.RING || x + w > N - C.RING || y + h > N - C.RING) return false; for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) if (occ[y + j][x + i]) return false; return true; }
+    function mark(x, y, w, h) { for (var j = 0; j < h; j++) for (var i = 0; i < w; i++) occ[y + j][x + i] = 1; }
+    var core = cc.bld.filter(function (b) { return b.t === "core"; })[0]; if (core) { pos[core.id] = [10, 10]; mark(10, 10, C.B.core.w, C.B.core.h); }
+    // fence rings
+    var walls = cc.bld.filter(function (b) { return b.t === "wall"; }), left = walls.length, radii = [], wi = 0;
+    P.rings.forEach(function (R) { if (left >= 8 * R) { radii.push(R); left -= 8 * R; } else { var m = Math.floor(left / 8); if (m >= 3 && radii.indexOf(m) < 0 && (!radii.length || m < Math.min.apply(null, radii) || m > Math.max.apply(null, radii))) { radii.push(m); left -= 8 * m; } } });
+    if (!radii.length && left > 0) { radii.push(Math.max(3, Math.min(5, Math.floor(left / 8) || 3))); }
+    radii.sort(function (a, b) { return a - b; });
+    function ringTiles(R) { var t = []; for (var i = -R; i <= R; i++) { t.push([11 + i, 11 - R], [11 + i, 11 + R]); if (i > -R && i < R) t.push([11 - R, 11 + i], [11 + R, 11 + i]); } return t; }
+    radii.forEach(function (R) { ringTiles(R).forEach(function (p) { if (wi < walls.length && free(p[0], p[1], 1, 1)) { pos[walls[wi].id] = [p[0], p[1]]; mark(p[0], p[1], 1, 1); wi++; } }); });
+    // leftover fences: a short spur row just outside the outer ring so nothing is orphaned
+    var outerR = radii.length ? radii[radii.length - 1] : 3;
+    function band(cx0, cy0) { var d = Math.max(Math.abs(cx0 - CEN), Math.abs(cy0 - CEN)) - 0.5; var b = 0; for (var i = 0; i < radii.length; i++) if (d > radii[i] + 0.5 - 0.5) b = i + 1; return b; }
+    // buildings
+    var others = cc.bld.filter(function (b) { return b.t !== "core" && b.t !== "wall"; });
+    var prio = {def: 0, sto: 1, crew: 2, col: 3, camp: 4, train: 4, lab: 4, work: 4, trap: 9}; others.sort(function (a, b) { var A = C.B[a.t], B = C.B[b.t]; return (prio[A.kind] - prio[B.kind]) || (B.w * B.h - A.w * A.h); });
+    var placed = []; var fail = 0;
+    others.forEach(function (b) {
+      var d = C.B[b.t], k = d.kind, zone = P.zone[k] || [1], tg = P.tg[k] || 6, best = null, bs = 1e9;
+      for (var y = C.RING; y + d.h <= N - C.RING; y++) for (var x = C.RING; x + d.w <= N - C.RING; x++) {
+        if (!free(x, y, d.w, d.h)) continue; var cxx = x + d.w / 2, cyy = y + d.h / 2, dist = Math.hypot(cxx - CEN, cyy - CEN), bd = band(cxx, cyy);
+        var sc = Math.abs(dist - tg) + r() * 0.7 + (zone.indexOf(Math.min(bd, radii.length)) < 0 ? 40 : 0);
+        if (k === "def" || k === "trap") placed.forEach(function (q) { if (q.t === b.t || (k === "def" && q.k === "def")) { var dd = Math.hypot(q.cx - cxx, q.cy - cyy); if (dd < 3.5) sc += (3.5 - dd) * (k === "def" ? 0.8 : 0.5); } });
+        if (sc < bs) { bs = sc; best = [x, y, cxx, cyy]; }
+      }
+      if (!best) { fail++; return; } pos[b.id] = [best[0], best[1]]; mark(best[0], best[1], d.w, d.h); placed.push({t: b.t, k: k, cx: best[2], cy: best[3]});
+    });
+    if (fail || wi < walls.length && false) { BB.sfx("deny"); X.toast("That layout does not fit your buildings. Nothing was moved."); return; }
+    // leftover walls: free tiles on the ring just outside the outer fence, filled from the top
+    for (; wi < walls.length; wi++) { var ok = false, R2 = outerR + 1; for (var k2 = 0; k2 < 3 && !ok; k2++) { var tl = ringTiles(R2 + k2); for (var q = 0; q < tl.length; q++) { if (free(tl[q][0], tl[q][1], 1, 1)) { pos[walls[wi].id] = [tl[q][0], tl[q][1]]; mark(tl[q][0], tl[q][1], 1, 1); ok = true; break; } } } if (!ok) { pos[walls[wi].id] = null; } }
+    cc.prevLayout = snap; cc.bld.forEach(function (b) { var p = pos[b.id]; if (p) { b.x = p[0]; b.y = p[1]; } });
+    V.sel = null; V.analysis = null; X.selBar(); BB.sfx("upgrade"); BB.track("cc_preset", {k: key, rings: radii.length}); X.checkFences(); X.save();
+    X.toast(P.n + " layout applied (" + radii.length + " fence ring" + (radii.length === 1 ? "" : "s") + "). You can undo it.");
+  };
+  X.undoLayout = function () {
+    if (!cc.prevLayout) { X.toast("Nothing to undo"); return; } var m = {}; cc.prevLayout.forEach(function (p) { m[p.id] = p; });
+    cc.bld.forEach(function (b) { var p = m[b.id]; if (p) { b.x = p.x; b.y = p.y; } }); cc.prevLayout = null; V.analysis = null; BB.sfx("click"); X.save(); X.toast("Layout restored");
+  };
+
   // ---------- async defence raids ----------
-  function defBase() {
-    var barns = done("barn"), silos = done("silo"), lc = Math.min(S.coins * 0.5, X.coreL() * 3000), ls = Math.min(S.salv * 0.5, X.coreL() * 150);
+  function defBase(noLoot) {
+    var barns = done("barn"), silos = done("silo"), lc = Math.min(S.coins * 0.5, C.LOOTC[X.coreL() - 1][1]), ls = Math.min(S.salv * 0.5, C.LOOTS[X.coreL() - 1][1]); if (noLoot) { lc = 0; ls = 0; }
     var bld = cc.bld.filter(function (b) { return b.l >= 1; }).map(function (b) {
       var o = {t: b.t, x: b.x, y: b.y, l: b.l}, d = C.B[b.t];
-      if (d.kind === "sto" && d.res === "c") o.lc = Math.floor(lc / barns.length); if (d.kind === "sto" && d.res === "s") o.ls = Math.floor(ls / Math.max(1, silos.length));
-      if (d.kind === "col") { if (d.res === "c") o.lc = Math.floor(b.st || 0); else o.ls = Math.floor(b.st || 0); } return o; });
+      if (d.kind === "sto" && d.res === "c") o.lc = Math.floor(lc / Math.max(1, barns.length)); if (d.kind === "sto" && d.res === "s") o.ls = Math.floor(ls / Math.max(1, silos.length));
+      if (d.kind === "col") { if (d.res === "c") o.lc = noLoot ? 0 : Math.floor(b.st || 0); else o.ls = noLoot ? 0 : Math.floor(b.st || 0); } return o; });
     return {seed: 1, fh: X.coreL(), name: "Your base", bld: bld, theme: "p", crewUnits: JSON.parse(JSON.stringify(cc.crew.units))};
   }
   X.defBase = defBase;
   function aiArmy(fh, r) {
-    var a = [{slinger: 8, bruiser: 1}, {slinger: 14, bruiser: 3, roller: 2}, {slinger: 22, bruiser: 5, roller: 4, drone: 3}, {slinger: 30, bruiser: 8, roller: 6, drone: 5, hero: 1}][fh - 1], o = {};
+    var a = [{slinger: 8, bruiser: 1}, {slinger: 14, bruiser: 3, roller: 2}, {slinger: 22, bruiser: 5, roller: 4, drone: 3}, {slinger: 30, bruiser: 8, roller: 6, drone: 5, hero: 1}][Math.min(4, fh) - 1], o = {};
+    if (fh > 4) { var g = Math.pow(1.3, fh - 4); a = {slinger: 30 * g, bruiser: 8 * g, roller: 6 + (fh - 4), drone: 5 * g, hero: 1, chick: 12 * g}; if (fh >= 4) a.sow = 2; if (fh >= 5) { a.hound = 3; a.mule = 3; } if (fh >= 6) { a.spinner = 3; a.wrench = 2; } if (fh >= 7) a.badger = 3; if (fh >= 8) a.kestrel = 3; }
+    else if (fh >= 3) { a.sow = 1; a.hound = 2; }
     for (var k in a) o[k] = Math.max(1, Math.round(a[k] * (0.7 + r() * 0.5))); return o;
   }
   X.simDefense = function (seedIn) {
     var now = Date.now(), seed = seedIn || (now % 100000 + 17), r = C.rng(seed), fh = X.coreL(), army = aiArmy(fh, r), script = Sim.aiScript(seed, army), base = defBase();
     var sim = Sim.create(base, {script: script, ulv: {}, heroLvl: Math.min(10, fh * 2), crewUnits: null}); sim.crewList = base.crewUnits; var res = sim.run(); var st = res.stars, pct = res.pct;
     var lc = Math.min(S.coins, res.loot.c), ls = Math.min(S.salv, res.loot.s); S.coins -= lc; S.salv -= ls;
-    var tl = st === 0 ? 0 : Math.min(cc.trophies, 8 + st * 6 + fh * 2), tg = st === 0 ? 8 : 0; cc.trophies = Math.max(0, cc.trophies - tl + tg);
+    var tl = st === 0 ? 0 : Math.min(cc.trophies, 8 + st * 6 + Math.min(fh, 6) * 2), tg = st === 0 ? 8 : 0; cc.trophies = Math.max(0, cc.trophies - tl + tg);
     if (st >= 1) { cc.shield = Math.max(cc.shield, now + (st === 3 ? 16 : pct >= 50 ? 12 : 8) * 3600000 / mul() * 1); } else stat("held");
     var e = {ts: now, att: FAKE[seed % FAKE.length], aseed: seed, stars: st, pct: pct, lc: lc, ls: ls, tl: tl, tg: tg, held: st === 0, fh: fh, base: base, script: script, army: army};
     cc.log.unshift(e); cc.log = cc.log.slice(0, 8); cc.unseen++; BB.track("cc_defense", {stars: st, pct: pct, lc: lc, ls: ls}); X.save(); return e;
   };
   function maybeAsyncRaid() {
     var now = Date.now(); if (now < cc.nextRaid || raid || V.ghost) return; if (cc.shield > now) { cc.nextRaid = now + 5 * 60000 / mul(); return; }
+    if (cc.guard > now) { cc.nextRaid = now + 3 * 60000 / mul(); return; }
     if (!(cc.stats.attacks >= 1)) { cc.nextRaid = now + 3 * 60000 / mul(); return; }
     cc.nextRaid = now + (7 + Math.random() * 12) * 60000 / mul(); var e = X.simDefense(); X.toast(e.held ? "A raid on your ranch was beaten back!" : e.att + " raided your ranch! Check the LOG.");
   }
   X.offlineRaids = function () {
     var now = Date.now(), away = (now - cc.last) / 60000; cc.last = now; if (!(cc.stats.attacks >= 1) || away < 6) return 0; var n = Math.min(3, Math.floor(away / 15)), made = 0;
-    for (var i = 0; i < n; i++) { if (cc.shield > now) break; X.simDefense((now % 90000) + i * 977); made++; }
+    for (var i = 0; i < n; i++) { if (cc.shield > now || cc.guard > now) break; X.simDefense((now % 90000) + i * 977); made++; }
     cc.nextRaid = now + 10 * 60000 / mul(); return made;
   };
 
@@ -251,16 +336,21 @@
   X.raidOn = function () { return raid; };
   X.findRaid = function (rnd) {
     var fh = X.coreL(), fee = 40 * fh; if (S.coins < fee) { BB.sfx("deny"); X.toast("Need " + fee + " coins to scout a raid"); return; }
-    if (!(cc.army.slinger || cc.army.bruiser || cc.army.roller || cc.army.drone) && !(cc.heroHp > 0.2)) { BB.sfx("deny"); X.toast("Train some troops first (ARMY)"); return; }
-    S.coins -= fee; var b = G.find(fh, cc.trophies, rnd || Math.random, raid && raid.base ? raid.base.seed : 0); b.tw = 18 + fh * 6; b.tl = 10 + fh * 3; b.loot = b; BB.track("cc_find_raid", {fh: fh}); X.startScout(b, "find");
+    if (!C.UORDER.some(function (k) { return cc.army[k] > 0; }) && !(cc.heroHp > 0.2)) { BB.sfx("deny"); X.toast("Train some troops first (ARMY)"); return; }
+    S.coins -= fee; var b = G.find(fh, cc.trophies, rnd || Math.random, raid && raid.base ? raid.base.seed : 0); b.tw = 18 + Math.min(fh, 8) * 6; b.tl = 10 + Math.min(fh, 8) * 3; b.loot = b; applyGap(b, fh); BB.track("cc_find_raid", {fh: fh}); X.startScout(b, "find");
   };
+  // loot scales with the Core level gap (lower targets pay less, higher targets pay a bit more)
+  function applyGap(b, mine) { var gm = C.gapMul(mine, b.fh || mine); b.gapm = gm; if (gm !== 1) b.bld.forEach(function (x) { if (x.lc) x.lc = Math.round(x.lc * gm); if (x.ls) x.ls = Math.round(x.ls * gm); }); }
   X.startStory = function (i) {
     var sd = C.STORY[i - 1]; if (sd.fh > X.coreL()) { BB.sfx("deny"); X.toast("Needs Homestead Core L" + sd.fh); return; } var b = G.story(i); b.tw = 0; b.tl = 0; X.startScout(b, "story", i);
   };
-  X.startRevenge = function (e) { var b = G.attackerBase(e.aseed, e.fh); b.name = "Revenge: " + b.name; b.tw = 20 + e.fh * 6; b.tl = 8; X.startScout(b, "revenge"); };
+  X.startRevenge = function (e) { var b = G.attackerBase(e.aseed, e.fh); b.name = "Revenge: " + b.name; b.tw = 20 + Math.min(e.fh, 8) * 6; b.tl = 8; applyGap(b, X.coreL()); X.startScout(b, "revenge"); };
   X.startScout = function (base, kind, mi) {
     X.close(); X.closePanel(); V.ghost = null; V.paint = null; V.sel = null; var sim = Sim.create(base, {ulv: cc.ulv, heroLvl: S.lvl, heroHp: cc.heroHp, heroId: X.heroId(), cap: C.RAID_SEC});
-    raid = {base: base, kind: kind, mi: mi || 0, sim: sim, phase: "scout", sel: null, rec: [], acc: 0, speed: 1, hero: false, hpHero: null, dep: {}, lastDep: 0};
+    if (base.crewUnits) sim.crewList = base.crewUnits;
+    raid = {base: base, kind: kind, mi: mi || 0, sim: sim, phase: "scout", sel: null, rec: [], acc: 0, speed: 1, hero: false, hpHero: null, dep: {}, lastDep: 0, army: cc.army, spl: cc.spells};
+    if (kind === "practice") { raid.army = practiceArmy(); raid.spl = practiceSpells(); raid.noHero = true; }
+    V.showHeat = false; V.analysis = null; V.showRanges = false;
     document.body.classList.add("raiding"); $("base").classList.add("m-raid"); V.mode = "raid"; V.setTheme(base.theme === "a" ? "a" : "p"); V.sim = sim; V.scout = true; V.showDeploy = false; V.parts = []; V.projs = []; V.rings = []; V.floats = []; V.rubble = [];
     $("b-sel").classList.add("hidden"); scoutHTML(); raidHud(); BB.sfx("click");
   };
@@ -268,25 +358,25 @@
   function scoutHTML() {
     var b = raid.base, l = lootOf(b), el = $("r-scout"), fh = X.coreL(), sd = raid.kind === "story" ? C.STORY[raid.mi - 1] : null;
     el.classList.remove("hidden");
-    el.innerHTML = '<div class="sc-name"><b>' + b.name + "</b><small>" + (sd ? "Campaign " + raid.mi + "/10 &middot; " + sd.desc : "Alien outpost &middot; Core L" + b.fh) + "</small></div>" +
-      '<div class="sc-loot"><span><i class="ico coin"></i>' + X.fmt(l[0]) + '</span><span><i class="ico salv"></i>' + X.fmt(l[1]) + "</span>" + (raid.kind !== "story" ? '<span class="tw">\u25B2 +' + b.tw + ' \u25BC -' + b.tl + "</span>" : "") + "</div>" +
+    el.innerHTML = '<div class="sc-name"><b>' + b.name + "</b><small>" + (sd ? "Campaign " + raid.mi + "/10 &middot; " + sd.desc : (raid.kind === "practice" ? "Practice raid on your own base &middot; no loot, no trophies" : "Alien outpost &middot; Core L" + b.fh + (b.gapm && b.gapm !== 1 ? " &middot; loot x" + b.gapm.toFixed(2) + (b.gapm < 1 ? " (lower Core)" : " (higher Core bonus)") : ""))) + "</small></div>" +
+      '<div class="sc-loot"><span><i class="ico coin"></i>' + X.fmt(l[0]) + '</span><span><i class="ico salv"></i>' + X.fmt(l[1]) + "</span>" + (raid.kind !== "story" && raid.kind !== "practice" ? '<span class="tw">\u25B2 +' + b.tw + ' \u25BC -' + b.tl + "</span>" : "") + "</div>" +
       '<div class="sc-btns">' + (raid.kind === "find" ? '<button class="btn sec" id="sc-next">NEXT <small>' + 40 * fh + "c</small></button>" : "") + '<button class="btn sec" id="sc-back">BACK</button><button class="btn" id="sc-go">ATTACK!</button></div><div class="sc-hint">Scout the base: red circles show defense range. Look for gaps, walls, and the crew barn.</div>';
     $("sc-back").onclick = function () { leaveRaid(true); }; $("sc-go").onclick = beginRaid; var n = $("sc-next"); if (n) n.onclick = function () { var old = raid.base.seed; leaveRaid(true); X.findRaid(); };
   }
   function beginRaid() {
-    raid.phase = "fight"; V.scout = false; V.showDeploy = true; $("r-scout").classList.add("hidden"); raid.sim.started = false; raid.sim.allDeployed = false; cc.stats.attacks = (cc.stats.attacks || 0) + 1; stat("attacks", 0); BB.track("cc_raid_start", {kind: raid.kind, mi: raid.mi, fh: raid.base.fh});
-    var first = null; C.UORDER.forEach(function (k) { if (!first && cc.army[k] > 0) first = {t: "u", k: k}; }); raid.sel = first || (cc.heroHp > 0.2 ? {t: "h", k: "hero"} : null); raid.army0 = JSON.parse(JSON.stringify(cc.army)); raid.spells0 = JSON.parse(JSON.stringify(cc.spells));
+    raid.phase = "fight"; V.scout = false; V.showDeploy = true; $("r-scout").classList.add("hidden"); raid.sim.started = false; raid.sim.allDeployed = false; if (raid.kind !== "practice") { cc.stats.attacks = (cc.stats.attacks || 0) + 1; stat("attacks", 0); if (!(cc.shield > Date.now())) cc.guard = Date.now() + C.GUARD_MIN * 60000 / mul(); } BB.track("cc_raid_start", {kind: raid.kind, mi: raid.mi, fh: raid.base.fh});
+    var first = null; C.UORDER.forEach(function (k) { if (!first && raid.army[k] > 0) first = {t: "u", k: k}; }); raid.sel = first || (cc.heroHp > 0.2 && !raid.noHero ? {t: "h", k: "hero"} : null); raid.army0 = JSON.parse(JSON.stringify(raid.army)); raid.spells0 = JSON.parse(JSON.stringify(raid.spl));
     raid.t0 = performance.now(); raid.hpHero = cc.heroHp; raidBar(); raidHud(); BB.sfx("click");
   }
   function leaveRaid(refund) {
-    var wasReplay = raid && raid.replay; raid = null; V.sim = null; V.mode = "base"; V.scout = false; V.showDeploy = false; V.setTheme("p"); document.body.classList.remove("raiding"); $("base").classList.remove("m-raid"); $("r-scout").classList.add("hidden"); $("r-bar").innerHTML = "";
+    var wasReplay = raid && raid.replay; raid = null; V.sim = null; V.mode = "base"; V.scout = false; V.showDeploy = false; V.showHeat = false; V.setTheme("p"); document.body.classList.remove("raiding"); $("base").classList.remove("m-raid"); $("r-scout").classList.add("hidden"); $("r-bar").innerHTML = "";
     X.close(); V.parts = []; V.rings = []; V.projs = []; V.floats = []; X.hud(); X.selBar(); X.save();
   }
   X.leaveRaid = leaveRaid;
   function troopBtn(k, t) {
-    var n = t === "u" ? cc.army[k] || 0 : t === "s" ? cc.spells[k] || 0 : (cc.heroHp > 0.2 && !raid.hero ? 1 : 0), art = t === "u" ? C.U[k].art : t === "h" ? X.hero().port : null, sel = raid.sel && raid.sel.t === t && raid.sel.k === k;
-    var ic = t === "s" ? '<i class="sp" style="background:' + C.SP[k].col + '"></i>' : '<img src="assets/' + art + '.webp" alt="">'; if (!n && t !== "h") return "";
-    return '<button class="tb' + (sel ? " sel" : "") + (n ? "" : " zero") + '" data-t="' + t + '" data-k="' + k + '">' + ic + "<b>" + (t === "h" ? "HERO" : t === "s" ? C.SP[k].name.split(" ")[0] + " " + n : "x" + n) + "</b></button>";
+    var n = t === "u" ? raid.army[k] || 0 : t === "s" ? raid.spl[k] || 0 : (cc.heroHp > 0.2 && !raid.hero && !raid.noHero ? 1 : 0), art = t === "u" ? C.U[k].art : t === "h" ? X.hero().port : null, sel = raid.sel && raid.sel.t === t && raid.sel.k === k;
+    var ic = t === "s" ? '<i class="sp" style="background:' + C.SP[k].col + '"></i>' : '<img src="assets/' + art + '.webp" alt="">'; if (!n && t !== "h") return ""; if (t === "h" && raid.noHero) return "";
+    return '<button class="tb' + (sel ? " sel" : "") + (n ? "" : " zero") + '" data-t="' + t + '" data-k="' + k + '">' + ic + "<b>" + (t === "h" ? "HERO" : t === "s" ? (C.SP[k].short || C.SP[k].name.split(" ")[0]) + " " + n : "x" + n) + "</b></button>";
   }
   function raidBar() {
     if (!raid || raid.replay) { $("r-bar").innerHTML = ""; return; } var h = "";
@@ -301,27 +391,32 @@
     $("r-timer").textContent = (raid.phase === "scout" ? "Scouting" : fmtClock(left)); $("r-pct").textContent = s.pct + "%";
     var st = ""; for (var i = 0; i < 3; i++) st += '<img src="assets/' + (i < s.stars ? "ui_star" : "ui_star_off") + '.webp" alt="">'; $("r-stars").innerHTML = st;
     $("r-loot").innerHTML = '<span><i class="ico coin"></i>+' + X.fmt(s.loot.c) + '</span><span><i class="ico salv"></i>+' + X.fmt(s.loot.s) + "</span>";
-    $("r-end").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-end").textContent = raid.replay ? "CLOSE" : "END BATTLE"; $("r-speed").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-speed").textContent = "x" + raid.speed;
+    $("r-end").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-end").textContent = raid.replay ? "CLOSE" : raid.kind === "practice" ? "END TEST" : "END BATTLE"; $("r-speed").style.display = raid.phase === "fight" || raid.replay ? "" : "none"; $("r-speed").textContent = "x" + raid.speed;
+    var rw = $("r-win"); if (rw) { var tt = raid.phase === "scout" ? 0 : s.t, hw = ""; C.WINDOWS.forEach(function (w, i) { var act = tt >= w.a && tt < w.b, pc = Math.max(0, Math.min(1, (tt - w.a) / (w.b - w.a))); hw += '<span class="' + (act ? "on" : tt >= w.b ? "past" : "") + '" style="flex:' + (w.b - w.a) + '"><i style="width:' + Math.round(pc * 100) + '%"></i><b>' + w.n + "</b></span>"; }); if (hw !== X._wh) { X._wh = hw; rw.innerHTML = hw; } rw.style.display = raid.phase === "scout" ? "none" : ""; }
     $("r-star1").className = s.pct >= 50 ? "on" : ""; $("r-star2").className = s.coreDead ? "on" : ""; $("r-star3").className = s.pct >= 100 ? "on" : "";
   }
   var denyAt = 0;
   X.raidTap = function (x, y, first) {
     if (!raid || raid.phase !== "fight" || raid.replay || raid.sim.done || !raid.sel) return; var s = raid.sim, sel = raid.sel, now = performance.now();
-    if (sel.t === "s") { if (!first) return; if (x < 0 || y < 0 || x > N || y > N) return; if ((cc.spells[sel.k] || 0) < 1) return; s.spell(sel.k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: sel.k, x: +x.toFixed(2), y: +y.toFixed(2)}); cc.spells[sel.k]--; BB.sfx("ult"); V.ring(x, y, 3, C.SP[sel.k].col); if (!cc.spells[sel.k]) { raid.sel = null; } raidBar(); startClock(); return; }
+    if (sel.t === "s") { if (!first) return; if (x < 0 || y < 0 || x > N || y > N) return; if ((raid.spl[sel.k] || 0) < 1) return; s.spell(sel.k, x, y); raid.rec.push({t: +s.t.toFixed(2), s: 1, k: sel.k, x: +x.toFixed(2), y: +y.toFixed(2)}); raid.spl[sel.k]--; BB.sfx("ult"); V.ring(x, y, 3, C.SP[sel.k].col); if (!raid.spl[sel.k]) { raid.sel = null; } raidBar(); startClock(); return; }
     if (!first && now - raid.lastDep < 85) return; var cx = Math.max(0.5, Math.min(N - 0.5, x)), cy = Math.max(0.5, Math.min(N - 0.5, y));
     if (!s.canDeploy(cx, cy)) { if (first && now - denyAt > 1200) { denyAt = now; X.toast("Deploy troops from the edge, outside the plot"); BB.sfx("deny"); } return; }
     raid.lastDep = now; var jx = (Math.random() - 0.5) * 0.5, jy = (Math.random() - 0.5) * 0.5;
-    if (sel.t === "u") { if ((cc.army[sel.k] || 0) < 1) return; var u = s.deploy(sel.k, cx + jx, cy + jy); if (!u) return; raid.rec.push({t: +s.t.toFixed(2), k: sel.k, x: +(cx + jx).toFixed(2), y: +(cy + jy).toFixed(2)}); cc.army[sel.k]--; raid.dep[sel.k] = (raid.dep[sel.k] || 0) + 1; BB.sfx("shoot"); if (!cc.army[sel.k]) { raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && cc.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); } else raidBar(); }
-    else if (sel.t === "h") { if (raid.hero || cc.heroHp <= 0.2) return; var h = s.deploy("hero", cx, cy, {lvl: S.lvl, hpFrac: cc.heroHp, hid: X.heroId()}); if (!h) return; raid.hero = h; raid.rec.push({t: +s.t.toFixed(2), k: "hero", x: +cx.toFixed(2), y: +cy.toFixed(2)}); BB.sfx("roar"); raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && cc.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); }
+    if (sel.t === "u") { if ((raid.army[sel.k] || 0) < 1) return; var u = s.deploy(sel.k, cx + jx, cy + jy); if (!u) return; raid.rec.push({t: +s.t.toFixed(2), k: sel.k, x: +(cx + jx).toFixed(2), y: +(cy + jy).toFixed(2)}); raid.army[sel.k]--; raid.dep[sel.k] = (raid.dep[sel.k] || 0) + 1; BB.sfx("shoot"); if (!raid.army[sel.k]) { raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); } else raidBar(); }
+    else if (sel.t === "h") { if (raid.hero || cc.heroHp <= 0.2) return; var h = s.deploy("hero", cx, cy, {lvl: S.lvl, hpFrac: cc.heroHp, hid: X.heroId()}); if (!h) return; raid.hero = h; raid.rec.push({t: +s.t.toFixed(2), k: "hero", x: +cx.toFixed(2), y: +cy.toFixed(2)}); BB.sfx("roar"); raid.sel = null; C.UORDER.forEach(function (k) { if (!raid.sel && raid.army[k] > 0) raid.sel = {t: "u", k: k}; }); raidBar(); }
     startClock();
   };
   function startClock() { if (raid && !raid.clock) { raid.clock = true; } }
-  X.raidUp = function () { if (raid && raid.phase === "fight" && !raid.replay) { var left = C.UORDER.some(function (k) { return cc.army[k] > 0; }) || (cc.heroHp > 0.2 && !raid.hero); raid.sim.allDeployed = !left; } };
+  X.raidUp = function () { if (raid && raid.phase === "fight" && !raid.replay) { var left = C.UORDER.some(function (k) { return raid.army[k] > 0; }) || (cc.heroHp > 0.2 && !raid.hero && !raid.noHero); raid.sim.allDeployed = !left; } };
   X.endBattle = function () { if (!raid) return; if (raid.replay) { leaveRaid(); return; } if (raid.phase === "fight") { raid.sim.done = true; raid.sim.why = "surrender"; finishRaid(); } };
   function finishRaid() {
-    var s = raid.sim, r = s.result(), kind = raid.kind, base = raid.base, st = r.stars, win = st >= 1; raid.phase = "done"; V.showDeploy = false;
+    var s = raid.sim, r = s.result(), kind = raid.kind, base = raid.base, st = r.stars, win = st >= 1; raid.phase = "done"; V.showDeploy = false; V.showHeat = true;
     // hero hp
     if (raid.hero) { cc.heroHp = raid.hero.dead || raid.hero.hp <= 0 ? 0 : Math.max(0.05, raid.hero.hp / raid.hero.mx); cc.heroT = Date.now(); }
+    if (kind === "practice") {
+      V.showHeat = true; cc.lastRaid = {base: base, script: raid.rec, ulv: cc.ulv, heroLvl: S.lvl, heroId: X.heroId(), heroHp: 1, kind: "practice", mi: 0, army: raid.army0}; BB.track("cc_practice_end", {stars: st, pct: r.pct, sec: r.t, n: r.funnel.n}); stat("practice"); BB.sfx(win ? "win" : "lose"); X.save();
+      showResults(r, [0, 0], 0, "Practice only: no loot, no trophies, no troops spent.", false, 1); return;
+    }
     var firstClear = false, rewards = "", lootMul = 1;
     if (kind === "story") { var prev = cc.story[raid.mi] || 0, hadX = X.heroUnlocked("scx"); if (st > prev) cc.story[raid.mi] = st; if (win && !prev) { firstClear = true; var gem = 6 + raid.mi * 2; give(0, 0, gem); rewards = "First clear bonus: +" + gem + " gems"; } if (!hadX && X.heroUnlocked("scx")) { rewards += (rewards ? ". " : "") + "NEW HERO: Scarecrow-X unlocked! Pick him in the HERO tab."; BB.track("cc_hero_unlock", {id: "scx"}); } else lootMul = 0.5; }
     var got = addCapped(Math.round(r.loot.c * lootMul), Math.round(r.loot.s * lootMul)), td = 0;
@@ -331,22 +426,28 @@
     BB.track("cc_raid_end", {kind: kind, mi: raid.mi, stars: st, pct: r.pct, lc: r.loot.c, sec: r.t, why: r.why, td: td}); BB.sfx(win ? "win" : "lose"); X.save();
     showResults(r, got, td, rewards, firstClear, lootMul);
   }
+  function funnelHTML(f) {
+    if (!f || !f.lines || !f.lines.length) return "";
+    return '<div class="card funnel"><h4>Lane report</h4><small>' + f.lines.join("<br>") + "</small></div>";
+  }
+  X.funnelHTML = funnelHTML;
   function starRow(n) { var s = ""; for (var i = 0; i < 3; i++) s += '<img class="bs' + (i < n ? " on pop" : "") + '" src="assets/' + (i < n ? "ui_star" : "ui_star_off") + '.webp" alt="">'; return s; }
   function showResults(r, got, td, rewards, firstClear, lootMul) {
     var win = r.stars >= 1, kind = raid.kind, L = C.league(cc.trophies), boss = raid.base.boss;
-    var h = '<h1 class="' + (win ? "win" : "lose") + '">' + (win ? (r.stars === 3 ? "TOTAL VICTORY!" : "RAID WON!") : "RAID FAILED") + '</h1><div class="bigstars2">' + starRow(r.stars) + '</div><div class="muted" style="text-align:center">' + raid.base.name + " &middot; " + r.pct + "% destroyed" + (r.coreDead ? " &middot; Core down" : "") + '</div><div class="loot"><span>Coins looted</span><span>+' + X.fmt(got[0]) + (lootMul < 1 ? " (repeat: half)" : "") + "</span><span>Salvage looted</span><span>+" + X.fmt(got[1]) + "</span>" + (kind !== "story" ? "<span>Trophies</span><span>" + (td >= 0 ? "+" : "") + td + "</span><span>League</span><span>" + L.n + " (" + cc.trophies + ")</span>" : "") + "</div>" + (rewards ? '<div class="muted" style="text-align:center;color:#ffd77a">' + rewards + "</div>" : "");
-    if (got[0] < Math.round(r.loot.c * lootMul) - 1) h += '<div class="muted" style="text-align:center">Storage was full: some loot was lost.</div>';
+    var h = '<h1 class="' + (win ? "win" : "lose") + '">' + (kind === "practice" ? "PRACTICE RESULT" : win ? (r.stars === 3 ? "TOTAL VICTORY!" : "RAID WON!") : "RAID FAILED") + '</h1><div class="bigstars2">' + starRow(r.stars) + '</div><div class="muted" style="text-align:center">' + raid.base.name + " &middot; " + r.pct + "% destroyed" + (r.coreDead ? " &middot; Core down" : "") + '</div>' + (kind === "practice" ? "" : '<div class="loot"><span>Coins looted</span><span>+' + X.fmt(got[0]) + (lootMul < 1 ? " (repeat: half)" : "") + "</span><span>Salvage looted</span><span>+" + X.fmt(got[1]) + "</span>" + (kind !== "story" ? "<span>Trophies</span><span>" + (td >= 0 ? "+" : "") + td + "</span><span>League</span><span>" + L.n + " (" + cc.trophies + ")</span>" : "") + (raid.base.gapm && raid.base.gapm !== 1 ? "<span>Core gap</span><span>loot x" + raid.base.gapm.toFixed(2) + "</span>" : "") + "</div>") + (rewards ? '<div class="muted" style="text-align:center;color:#ffd77a">' + rewards + "</div>" : "");
+    h += funnelHTML(r.funnel);
+    if (got[0] < Math.round(r.loot.c * lootMul) - 1 && kind !== "practice") h += '<div class="muted" style="text-align:center">Storage was full: some loot was lost.</div>';
     var btns = '<button class="btn sec" id="rs-home">HOME</button><button class="btn sec" id="rs-rep">REPLAY</button>';
-    if (boss && win) btns += '<button class="btn blue" id="rs-duel">DUEL VORLAX!</button>'; else if (kind === "story" && win && raid.mi < 10) btns += '<button class="btn" id="rs-next">NEXT MISSION</button>'; else if (kind === "find") btns += '<button class="btn" id="rs-again">FIND ANOTHER</button>';
+    if (boss && win) btns += '<button class="btn blue" id="rs-duel">DUEL VORLAX!</button>'; else if (kind === "story" && win && raid.mi < 10) btns += '<button class="btn" id="rs-next">NEXT MISSION</button>'; else if (kind === "find") btns += '<button class="btn" id="rs-again">FIND ANOTHER</button>'; else if (kind === "practice") btns += '<button class="btn" id="rs-prac">TRY AGAIN</button>';
     X.modal(h + '<div class="btns">' + btns + "</div>", "res"); var mi = raid.mi, kd = kind, base = raid.base;
     $("rs-home").onclick = function () { leaveRaid(); }; $("rs-rep").onclick = function () { X.watchLast(); };
     var d = $("rs-duel"); if (d) d.onclick = function () { leaveRaid(); BB.fromCC = true; $("base").classList.remove("active"); BB.UI.startBattle(10); };
-    var n = $("rs-next"); if (n) n.onclick = function () { leaveRaid(); X.startStory(mi + 1); }; var a = $("rs-again"); if (a) a.onclick = function () { leaveRaid(); X.findRaid(); };
+    var n = $("rs-next"); if (n) n.onclick = function () { leaveRaid(); X.startStory(mi + 1); }; var a = $("rs-again"); if (a) a.onclick = function () { leaveRaid(); X.findRaid(); }; var pr = $("rs-prac"); if (pr) pr.onclick = function () { leaveRaid(); X.startPractice(); };
   }
   X.watchLast = function () { if (cc.lastRaid) X.watch(cc.lastRaid); };
   X.watch = function (rp) {
     X.close(); if (raid) { leaveRaid(); } var base = rp.base; var sim = Sim.create(base, {script: rp.script, ulv: rp.ulv || {}, heroLvl: rp.heroLvl || 1, heroId: rp.heroId, heroHp: rp.heroHp, cap: C.RAID_SEC}); if (rp.crew || base.crewUnits) sim.crewList = base.crewUnits || null;
-    raid = {base: base, kind: "replay", sim: sim, phase: "fight", replay: true, speed: 1, rec: [], dep: {}, acc: 0}; document.body.classList.add("raiding"); $("base").classList.add("m-raid"); V.mode = "raid"; V.setTheme(base.theme === "a" ? "a" : "p"); V.sim = sim; V.scout = false; V.showDeploy = false; V.parts = []; V.projs = []; V.rings = []; V.floats = [];
+    raid = {base: base, kind: "replay", sim: sim, phase: "fight", replay: true, speed: 1, rec: [], dep: {}, acc: 0}; document.body.classList.add("raiding"); $("base").classList.add("m-raid"); V.mode = "raid"; V.setTheme(base.theme === "a" ? "a" : "p"); V.sim = sim; V.scout = false; V.showDeploy = false; V.showHeat = false; V.parts = []; V.projs = []; V.rings = []; V.floats = [];
     $("b-sel").classList.add("hidden"); $("r-scout").classList.add("hidden"); $("r-bar").innerHTML = ""; raidHud();
   };
   // ---------- main loop ----------
@@ -358,7 +459,7 @@
       var q = new URLSearchParams(location.search), fast = +(q.get("fast") || 1) * (window.__ccFast || 1); raid.acc += dt * raid.speed * fast; var n = 0, sim = raid.sim;
       while (raid.acc >= sim.dt && n < 40 * Math.max(1, fast) && !sim.done) { raid.acc -= sim.dt; if (raid.phase === "fight" && (sim.started || raid.replay || sim.t > 0 || raid.clock)) sim.step(sim.dt); n++; if (sim.done) break; }
       if (!raid.clock && !raid.replay) raid.acc = 0;
-      if (sim.done && !raid.replay) { finishRaid(); } else if (sim.done && raid.replay) { X.toast("Replay finished"); }
+      if (sim.done && !raid.replay) { finishRaid(); } else if (sim.done && raid.replay && !raid.shown) { raid.shown = 1; V.showHeat = true; X.toast("Replay finished"); X.modal('<h1 class="win" style="font-size:20px">REPLAY SUMMARY</h1><div class="muted" style="text-align:center">' + sim.pct + "% &middot; " + sim.stars + ' star' + (sim.stars === 1 ? "" : "s") + "</div>" + funnelHTML(S2.funnel(sim)) + '<div class="btns"><button class="btn sec" id="m-no">WATCH THE MAP</button><button class="btn" id="m-cl">CLOSE REPLAY</button></div>'); $("m-no").onclick = X.close; $("m-cl").onclick = function () { X.close(); leaveRaid(); }; }
     }
     if (raid && raid.sim && raid.sim.done && raid.replay === undefined && raid.phase === "fight") finishRaid();
     V.update(dt); V.draw(); if (raid) { if (((performance.now() / 100) | 0) !== X._rh) { X._rh = (performance.now() / 100) | 0; raidHud(); } }

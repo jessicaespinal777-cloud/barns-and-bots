@@ -15,15 +15,23 @@
   function lvOf(t) { var m = 0; X.cc().bld.forEach(function (b) { if (b.t === t && b.l > m) m = b.l; }); return m; }
 
   // ---------- panels ----------
+  function toolsHTML() {
+    var cc0 = X.cc(), h = '<div class="card tools"><h4>Base tools</h4><small>' + X.fenceSummary() + '</small><div class="trow">';
+    h += '<button class="btn sec' + (V.showRanges ? " on" : "") + '" data-bt="ranges">RANGES ' + (V.showRanges ? "ON" : "OFF") + '</button><button class="btn sec" data-bt="check">CHECK FENCES</button><button class="btn sec" data-bt="practice">TEST MY BASE</button></div>';
+    h += '<div class="trow"><span class="muted">Layout</span>'; ["farm", "trophy", "fort"].forEach(function (k) { h += '<button class="btn sec" data-bt="p:' + k + '">' + X.PRESETS[k].n.toUpperCase() + "</button>"; });
+    h += '<button class="btn sec' + (cc0.prevLayout ? "" : " off") + '" data-bt="undo">UNDO</button></div>';
+    h += "<small>Farm: loot tucked inside. Trophy: storages out as bait, defenses guard the Core. Fortress: everything inside layered rings. Presets only move what you own and can be undone.</small></div>";
+    return h;
+  }
   function buildHTML() {
-    var h = "<h2>BUILD</h2><p class=\"sub\">Core L" + X.coreL() + ". Each building needs a free tinker to construct. Upgrade the Homestead Core to unlock more.</p><div class=\"grid2\">";
+    var h = "<h2>BUILD</h2><p class=\"sub\">Core L" + X.coreL() + ". Each building needs a free tinker to construct. Upgrade the Homestead Core to unlock more.</p>" + toolsHTML() + "<div class=\"grid2\">";
     C.ORDER.forEach(function (t) {
       if (t === "core") return; var d = C.B[t], n = X.count(t), mx = X.maxCount(t), lock = !mx, full = mx && n >= mx, c0 = d.c[0];
-      if (lock) { var need = 1; while (need < 4 && !d.mx[need]) need++; h += '<div class="bc lock"><img src="' + icon(t) + '" alt=""><b>' + d.name + '</b><small>Core L' + (need + 1) + " to unlock</small></div>"; return; }
+      if (lock) { var need = 1; while (need < C.CORE_MAX && !d.mx[need]) need++; h += '<div class="bc lock"><img src="' + icon(t) + '" alt=""><b>' + d.name + '</b><small>Core L' + (need + 1) + " to unlock</small></div>"; return; }
       var ok = afford(c0, d.s[0]) && !full;
       h += '<button class="bc' + (ok ? "" : " off") + '" data-build="' + t + '"><img src="' + icon(t) + '" alt=""><b>' + d.name + '</b><em>' + n + "/" + mx + "</em><div class=\"cr\">" + cost(c0, d.s[0]) + '</div><small>' + (t === "wall" ? "no builder needed" : C.fmtT(d.t[0])) + "</small></button>";
     });
-    h += "</div>"; var w = X.cc().bld.filter(function (b) { return b.t === "wall"; }); if (w.length) { var l = w[0].l, up = l < X.coreL() && l < 4, tot = w.length * C.B.wall.c[l]; h += '<div class="card"><h4>Fences L' + l + " &middot; " + w.length + " placed</h4><small>Upgrade all fences at once: +HP so raiders take longer to break through.</small><div style=\"margin-top:6px\"><button class=\"btn " + (up && S.coins >= tot ? "" : "off") + '" data-fenceup="1">' + (up ? "UPGRADE ALL <small>" + X.fmt(tot) + "c</small>" : "Upgrade the Core first") + "</button></div></div>"; }
+    h += "</div>"; var w = X.cc().bld.filter(function (b) { return b.t === "wall"; }); if (w.length) { var l = w[0].l, up = l < X.coreL() && l < C.CORE_MAX, tot = w.length * C.B.wall.c[l]; h += '<div class="card"><h4>Fences L' + l + " &middot; " + w.length + " placed</h4><small>Upgrade all fences at once: +HP so raiders take longer to break through.</small><div style=\"margin-top:6px\"><button class=\"btn " + (up && S.coins >= tot ? "" : "off") + '" data-fenceup="1">' + (up ? "UPGRADE ALL <small>" + X.fmt(tot) + "c</small>" : "Upgrade the Core first") + "</button></div></div>"; }
     return h;
   }
   function armyHTML() {
@@ -35,10 +43,10 @@
       h += '<div class="card row"><img class="uimg" src="assets/' + u.art + '.webp" alt=""><div class="grow"><h4>' + u.name + ' <span class="pill">L' + lv + '</span></h4><small>' + u.d + "<br>HP " + Math.round(u.hp * (1 + 0.25 * (lv - 1))) + " &middot; DPS " + Math.round(u.dps * (1 + 0.2 * (lv - 1))) + " &middot; housing " + u.h + "</small></div><div class=\"rt\"><b>x" + n + (q ? " <span class=\"muted\">+" + q + "</span>" : "") + "</b>" + (lock ? '<span class="pill d">Training Barn L' + u.tb + "</span>" : '<button class="btn ' + (can ? "" : "off") + '" data-train="' + k + '"><i class="ico coin"></i>' + u.c + "<small>" + u.tr + "s</small></button>") + "</div></div>";
     });
     if (c.queue.length) { var q0 = c.queue[0]; h += '<div class="card"><h4>Training: ' + c.queue.length + " queued</h4>" + bar((1 - q0.left / C.U[q0.k].tr) * 100, "g") + '<small>Next: ' + C.U[q0.k].name + " (" + Math.ceil(q0.left) + "s). More Training Barns train faster.</small><div style=\"margin-top:5px\"><button class=\"btn sec\" data-clearq=\"1\">CANCEL QUEUE (refund)</button></div></div>"; }
-    h += "<h3 class=\"sec\">Spells <small class=\"muted\">" + X.spellN() + "/" + C.SPCAP + "</small></h3>";
+    h += "<h3 class=\"sec\">Spells <small class=\"muted\">energy " + X.spellE() + "/" + X.spellCap() + " (" + X.spellN() + " brewed)</small></h3>";
     C.SPORDER.forEach(function (k) {
-      var sp = C.SP[k], n = c.spells[k] || 0, can = wl >= 1 && X.spellN() < C.SPCAP && afford(sp.c, sp.s);
-      h += '<div class="card row"><i class="sp big" style="background:' + sp.col + '"></i><div class="grow"><h4>' + sp.name + '</h4><small>' + sp.d + '</small></div><div class="rt"><b>x' + n + '</b>' + (wl < 1 ? '<span class="pill d">Needs Workshop</span>' : '<button class="btn ' + (can ? "" : "off") + '" data-brew="' + k + '">' + cost(sp.c, sp.s) + "</button>") + "</div></div>";
+      var sp = C.SP[k], n = c.spells[k] || 0, lk = X.coreL() < sp.unl, can = !lk && wl >= 1 && X.spellE() + sp.e <= X.spellCap() && afford(sp.c, sp.s);
+      h += '<div class="card row"><i class="sp big" style="background:' + sp.col + '"></i><div class="grow"><h4>' + sp.name + '</h4><small>' + sp.d + ' &middot; energy ' + sp.e + '</small></div><div class="rt"><b>x' + n + '</b>' + (lk ? '<span class="pill d">Core L' + sp.unl + "</span>" : wl < 1 ? '<span class="pill d">Needs Workshop</span>' : '<button class="btn ' + (can ? "" : "off") + '" data-brew="' + k + '">' + cost(sp.c, sp.s) + "</button>") + "</div></div>";
     });
     h += "<h3 class=\"sec\">Workshop upgrades</h3>";
     if (wl < 1) h += '<div class="card"><small>Build a Workshop (BUILD tab) to upgrade your troops and brew spells.</small></div>';
@@ -126,7 +134,7 @@
   X.debugBind = function () {
     var c = cc(); var a = $("cd-raid"); if (!a) return; a.onclick = function () { var e = X.simDefense(); X.close(); X.toast(e.att + " raided you: " + e.stars + " stars"); X.hud(); };
     $("cd-reset").onclick = function () { if (confirm("Reset the whole save?")) { localStorage.removeItem("bb_save_v1"); location.reload(); } };
-    $("cd-army").onclick = function () { var room = X.housing() - X.housed(); while (room > 0) { var k = ["slinger", "slinger", "bruiser", "slinger"][Math.floor(Math.random() * 4)]; if (C.U[k].h > room) k = "slinger"; c.army[k] = (c.army[k] || 0) + 1; room -= C.U[k].h; } X.close(); X.hud(); X.save(); };
+    $("cd-army").onclick = function () { var room = X.housing() - X.housed(); while (room > 0) { var k = ["slinger", "chick", "bruiser", "slinger", "hound", "sow"][Math.floor(Math.random() * 6)]; if (C.U[k].tb > lvOf("train") || C.U[k].h > room) k = "slinger"; c.army[k] = (c.army[k] || 0) + 1; room -= C.U[k].h; } X.close(); X.hud(); X.save(); };
     $("cd-res").onclick = function () { S.coins = X.coinCap(); S.salv = X.salvCap(); X.close(); X.hud(); X.save(); };
   };
 
@@ -134,8 +142,9 @@
   X.bind = function () {
     var base = $("base");
     base.addEventListener("click", function (e) {
-      var t = e.target, el = t.closest ? t.closest("[data-build],[data-train],[data-brew],[data-lab],[data-labskip],[data-clearq],[data-fenceup],[data-req],[data-crewclear],[data-don],[data-daily],[data-quest],[data-ach],[data-pass],[data-prem],[data-collect],[data-up],[data-move],[data-skip],[data-sel],[data-nav],[data-fence]") : null; if (!el) return; var d = el.dataset, c = cc();
+      var t = e.target, el = t.closest ? t.closest("[data-build],[data-train],[data-brew],[data-lab],[data-labskip],[data-clearq],[data-fenceup],[data-req],[data-crewclear],[data-don],[data-daily],[data-quest],[data-ach],[data-pass],[data-prem],[data-collect],[data-up],[data-move],[data-skip],[data-sel],[data-nav],[data-fence],[data-bt]") : null; if (!el) return; var d = el.dataset, c = cc();
       BB.audioInit && BB.audioInit();
+      if (d.bt) { var bt = d.bt; if (bt === "ranges") { X.toggleRanges(); render(false); } else if (bt === "check") { X.closePanel(); X.checkFences(); } else if (bt === "practice") { X.startPractice(); } else if (bt === "undo") { X.undoLayout(); render(false); } else if (bt.indexOf("p:") === 0) { X.closePanel(); X.applyPreset(bt.slice(2)); } return; }
       if (d.skip) { e.stopPropagation(); X.skip(X.byId(d.skip)); return; }
       if (d.sel) { V.sel = X.byId(d.sel); X.selBar(); return; }
       if (d.build) { X.startPlace(d.build); return; }
@@ -144,12 +153,12 @@
       if (d.move) { X.startMove(X.byId(d.move)); return; }
       if (d.fence) { X.startPaint(); return; }
       if (d.nav) { if (d.nav === "hero") { toHero(); } else openPanel(d.nav); return; }
-      if (d.train) { var u = C.U[d.train]; if (X.housed() + u.h > X.housing()) { BB.sfx("deny"); X.toast("Muster Yards are full. Build or upgrade Muster Yards."); return; } if (S.coins < u.c) { BB.sfx("deny"); X.toast("Not enough coins"); return; } S.coins -= u.c; if (!c.queue.length) c.qLast = Date.now(); c.queue.push({k: d.train, left: u.tr}); X.stat("train"); BB.sfx("click"); render(false); X.hud(); X.save(); return; }
+      if (d.train) { var u = C.U[d.train]; if (X.housed() + u.h > X.housing()) { BB.sfx("deny"); X.toast("Muster Yards are full. Build or upgrade Muster Yards."); return; } var cap2 = C.UMAX && C.UMAX[d.train]; if (cap2 && (c.army[d.train] || 0) + c.queue.filter(function (x) { return x.k === d.train; }).length >= cap2) { BB.sfx("deny"); X.toast(u.name + ": max " + cap2 + " per army"); return; } if (S.coins < u.c) { BB.sfx("deny"); X.toast("Not enough coins"); return; } S.coins -= u.c; if (!c.queue.length) c.qLast = Date.now(); c.queue.push({k: d.train, left: u.tr}); X.stat("train"); BB.sfx("click"); render(false); X.hud(); X.save(); return; }
       if (d.clearq) { c.queue.forEach(function (q) { S.coins += C.U[q.k].c; }); c.queue = []; render(false); X.hud(); return; }
-      if (d.brew) { var sp = C.SP[d.brew]; if (X.spellN() >= C.SPCAP || !(S.coins >= sp.c && S.salv >= sp.s)) { BB.sfx("deny"); X.toast(X.spellN() >= C.SPCAP ? "Spell slots full" : "Not enough resources"); return; } S.coins -= sp.c; S.salv -= sp.s; c.spells[d.brew] = (c.spells[d.brew] || 0) + 1; BB.sfx("upgrade"); render(false); X.hud(); X.save(); return; }
+      if (d.brew) { var sp = C.SP[d.brew]; var full = X.spellE() + sp.e > X.spellCap(); if (X.coreL() < sp.unl || full || !(S.coins >= sp.c && S.salv >= sp.s)) { BB.sfx("deny"); X.toast(X.coreL() < sp.unl ? "Needs Core L" + sp.unl : full ? "Spell energy full" : "Not enough resources"); return; } S.coins -= sp.c; S.salv -= sp.s; c.spells[d.brew] = (c.spells[d.brew] || 0) + 1; BB.sfx("upgrade"); render(false); X.hud(); X.save(); return; }
       if (d.lab) { var k = d.lab, to = (c.ulv[k] || 1) + 1, lc = C.LAB.c[to - 1], ls = C.LAB.s[to - 1]; if (c.lab || lvOf("workshop") < to - 1 || !afford(lc, ls)) { BB.sfx("deny"); X.toast(c.lab ? "Workshop is busy" : lvOf("workshop") < to - 1 ? "Upgrade the Workshop first" : "Not enough resources"); return; } S.coins -= lc; S.salv -= ls; c.lab = {k: k, to: to, total: C.LAB.t[to - 1], done: 0, last: Date.now()}; BB.sfx("upgrade"); render(false); X.hud(); X.save(); return; }
       if (d.labskip) { var g = BB.skipGems(c.lab.total - c.lab.done); if (S.gems < g) { BB.sfx("deny"); X.toast("Not enough play-gems (mock shop, not real money)"); return; } S.gems -= g; c.lab.done = c.lab.total; render(false); X.hud(); return; }
-      if (d.fenceup) { var w = c.bld.filter(function (b) { return b.t === "wall"; }), l = w[0].l, tot = w.length * C.B.wall.c[l]; if (l >= Math.min(4, X.coreL()) || S.coins < tot) { BB.sfx("deny"); X.toast(l >= X.coreL() ? "Upgrade the Core first" : "Not enough coins"); return; } S.coins -= tot; w.forEach(function (b) { b.l = l + 1; }); BB.sfx("upgrade"); X.stat("upg"); render(false); X.hud(); X.save(); return; }
+      if (d.fenceup) { var w = c.bld.filter(function (b) { return b.t === "wall"; }), l = w[0].l, tot = w.length * C.B.wall.c[l]; if (l >= Math.min(C.CORE_MAX, X.coreL()) || S.coins < tot) { BB.sfx("deny"); X.toast(l >= X.coreL() ? "Upgrade the Core first" : "Not enough coins"); return; } S.coins -= tot; w.forEach(function (b) { b.l = l + 1; }); BB.sfx("upgrade"); X.stat("upg"); render(false); X.hud(); X.save(); return; }
       if (d.req) { c.crew.req = true; c.crew.reqAt = Date.now() + 20000 / (S.set.timerMul || 1); BB.sfx("click"); render(false); return; }
       if (d.crewclear) { c.crew.units = {}; render(false); return; }
       if (d.don) { var m = C.CREWMEM[+d.don], kk = m.t; if ((c.army[kk] || 0) < 1) { BB.sfx("deny"); return; } c.army[kk]--; c.crew.don[day() + m.n] = 1; c.pass.pts += 15; X.give(40, 0, 0); BB.sfx("coin"); X.toast("Donated to " + m.n + ": +15 pass pts, +40 coins"); render(false); X.hud(); X.save(); return; }

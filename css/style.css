@@ -253,3 +253,17 @@ table.t td,table.t th{padding:3px 4px;border-bottom:1px solid #26305e;text-align
 .hcard .hsurge{font-size:11px;line-height:1.3;color:#e8eefc;flex:1}.hcard .hsurge b{color:#ffd35a}
 .hcard .hlock{font-size:11px;color:#ff9a8a;font-weight:800}
 .hcard .btn{width:100%;padding:8px 4px;font-size:13px}
+
+/* ---- v0.5: raid timeline windows, scrolling troop bar, base tools, lane report ---- */
+.r-win{display:flex;gap:3px;margin:3px auto 0;max-width:300px;font-size:9px;font-weight:900;color:#8d9cc8}
+.r-win span{position:relative;flex:1;height:14px;border-radius:7px;background:#1a2350;border:1px solid #3a4680;overflow:hidden;text-align:center;line-height:12px}
+.r-win span i{position:absolute;left:0;top:0;bottom:0;background:#3a5aa8;opacity:.7}
+.r-win span b{position:relative;font-weight:900;letter-spacing:.4px}
+.r-win span.on{border-color:#ffd35a;color:#ffe9b0}.r-win span.on i{background:#d38a1c}.r-win span.past{color:#5d6b9c}
+.r-bar{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.r-bar::-webkit-scrollbar{display:none}.r-bar .tb{flex:0 0 auto;width:52px}
+.card.tools .trow{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:6px 0}
+.card.tools .trow .btn{padding:6px 9px;font-size:11px;min-width:0;width:auto}
+.card.tools .btn.on{outline:2px solid #ffe65a}
+.card.tools .muted{font-size:11px;font-weight:900}
+.card.funnel small{display:block;line-height:1.45}

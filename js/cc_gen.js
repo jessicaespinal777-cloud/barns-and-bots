@@ -12,7 +12,7 @@
   function put(g, x, y, w, h) { for (var j = y; j < y + h; j++) for (var i = x; i < x + w; i++) g[j][i] = 1; }
   G.make = function (seed, fh, o) {
     o = o || {}; var rnd = C.rng(seed), g = mk(), bld = [];
-    var lv = Math.max(1, Math.min(4, fh - (rnd() < 0.3 ? 1 : 0) + (o.lvBonus || 0)));
+    var lv = Math.max(1, Math.min(C.CORE_MAX, fh - (rnd() < 0.3 ? 1 : 0) + (o.lvBonus || 0)));
     function add(t, x, y, l) { var d = C.B[t]; bld.push({t: t, x: x, y: y, l: l || lv}); put(g, x, y, d.w, d.h); return bld[bld.length - 1]; }
     function cnt(t) { var m = C.B[t].mx[fh - 1]; return m; }
     var ff = o.diff || 0;  // -1 easier .. +1 harder
@@ -22,9 +22,12 @@
       trap: Math.round(cnt("trap") * (0.5 + rnd() * 0.5)), vc: Math.max(1, cnt("barn") - (rnd() < 0.4 ? 1 : 0)), vs: Math.max(1, cnt("silo") - (rnd() < 0.4 ? 1 : 0)),
       hc: Math.max(1, cnt("field") - 1 + (rnd() < 0.5 ? 1 : 0)), hs: Math.max(1, cnt("rig") - (rnd() < 0.5 ? 1 : 0)), crew: fh >= 2 && rnd() < 0.8 ? 1 : 0
     };
+    ["fan", "storm", "coil", "crane", "driver", "shroud"].forEach(function (t) { var c0 = cnt(t); n[t] = c0 ? Math.max(1, Math.round(c0 * (0.6 + rnd() * 0.4))) : 0; });
+    ["snare", "mine", "cache", "stake"].forEach(function (t) { n[t] = Math.round(cnt(t) * (0.5 + rnd() * 0.5)); });
+    if (fh >= 5) { n.vc = Math.max(n.vc, 2); n.vs = Math.max(n.vs, 2); }
     if (o.counts) for (var k in o.counts) n[k] = o.counts[k];
     var cx = 10, cy = 10; add("core", cx, cy, fh);
-    var r = fh >= 3 ? 4 : 3, X0 = 11 - r - 1, X1 = 11 + r + 1;  // wall ring perimeter at X0/X1
+    var r = fh >= 6 ? 5 : fh >= 3 ? 4 : 3, X0 = 11 - r - 1, X1 = 11 + r + 1;  // wall ring perimeter at X0/X1
     // inner items
     function inner(t, l) {
       var d = C.B[t];
@@ -32,8 +35,10 @@
       return null;
     }
     var innerList = []; if (n.vc > 0) innerList.push("barn"); if (n.vs > 0) innerList.push("silo"); if (n.crew) innerList.push("crewhall");
+    if (fh >= 5 && n.vc > 1) innerList.push("barn"); if (n.coil) { innerList.push("coil"); n.coil--; }
     if (n.lobber) innerList.push("lobber"); else if (n.sniper) { innerList.push("sniper"); n.sniper--; }
-    innerList.forEach(function (t) { var b = inner(t); if (b) { if (t === "barn") n.vc--; if (t === "silo") n.vs--; if (t === "crewhall") n.crew = 0; if (t === "lobber") n.lobber--; } });
+    innerList.forEach(function (t) { var b = inner(t); if (b) { if (t === "barn") n.vc--; if (t === "coil") { }  if (t === "silo") n.vs--; if (t === "crewhall") n.crew = 0; if (t === "lobber") n.lobber--; } });
+    var wlv = lv;
     var wallLv = Math.max(1, lv);
     var gaps = {}; if (!o.noGap) { var ng = rnd() < 0.55 ? 1 : 0; for (var q = 0; q < ng; q++) gaps[Math.floor(rnd() * 4)] = 1 + Math.floor(rnd() * 2); }
     var walls = [];
@@ -59,7 +64,7 @@
       }
       if (best) return add(t, best[0], best[1]); return null;
     }
-    ["sniper", "lobber", "flak", "blaster"].forEach(function (t) { for (var k = 0; k < n[t]; k++) spot(t, rnd() < 0.5 ? "mid" : "any"); });
+    ["sniper", "lobber", "flak", "blaster", "fan", "storm", "coil", "crane", "driver", "shroud"].forEach(function (t) { for (var k = 0; k < n[t]; k++) spot(t, rnd() < 0.5 ? "mid" : "any"); });
     for (var a = 0; a < n.vc; a++) spot("barn", "mid");
     for (var b2 = 0; b2 < n.vs; b2++) spot("silo", "mid");
     if (n.crew) spot("crewhall", "mid");
@@ -67,7 +72,7 @@
     for (var e = 0; e < n.hs; e++) spot("rig", "out");
     // outer wall arcs
     if (!o.noWalls && fh >= 2) {
-      var arcs = fh >= 3 ? 3 : 1;
+      var arcs = fh >= 6 ? 5 : fh >= 3 ? 3 : 1;
       for (var s = 0; s < arcs; s++) {
         var sd = Math.floor(rnd() * 4), len = 6 + Math.floor(rnd() * 4), st = 7 + Math.floor(rnd() * 5), off = 3 + Math.floor(rnd() * 2) ; var P = sd < 2 ? (sd ? R1 - off : R0 + off) : (sd === 2 ? R0 + off : R1 - off);
         for (var l = 0; l < len; l++) { if (sd < 2) wall(st + l, P); else wall(P, st + l); }
@@ -75,17 +80,19 @@
     }
     bld = bld.concat(walls);
     // traps (free tiles near the compartment)
-    for (var tn = 0; tn < n.trap; tn++) {
-      for (var tt = 0; tt < 30; tt++) { var tx = 5 + Math.floor(rnd() * 14), ty = 5 + Math.floor(rnd() * 14); if (!g[ty][tx] && Math.max(Math.abs(tx - 11), Math.abs(ty - 11)) > r + 0.5) { bld.push({t: "trap", x: tx, y: ty, l: lv}); g[ty][tx] = 3; break; } }
-    }
+    [["trap", n.trap], ["snare", n.snare], ["mine", n.mine], ["cache", n.cache], ["stake", n.stake]].forEach(function (pr) {
+      for (var tn = 0; tn < pr[1]; tn++) {
+        for (var tt = 0; tt < 30; tt++) { var tx = 4 + Math.floor(rnd() * 16), ty = 4 + Math.floor(rnd() * 16); if (!g[ty][tx] && Math.max(Math.abs(tx - 11), Math.abs(ty - 11)) > r + 0.5) { bld.push({t: pr[0], x: tx, y: ty, l: lv}); g[ty][tx] = 3; break; } }
+      }
+    });
     // loot
-    var base = [[450, 600], [1700, 2400], [5000, 7000], [10500, 15000]][fh - 1], lo = base[0] + rnd() * (base[1] - base[0]);
-    var ls = [[20, 40], [60, 110], [140, 260], [320, 600]][fh - 1]; var salv = ls[0] + rnd() * (ls[1] - ls[0]);
+    var base = C.LOOTC[fh - 1], lo = base[0] + rnd() * (base[1] - base[0]);
+    var ls = C.LOOTS[fh - 1]; var salv = ls[0] + rnd() * (ls[1] - ls[0]);
     if (o.loot) { lo = o.loot[0]; salv = o.loot[1]; }
     var wC = 0, wS = 0; bld.forEach(function (b) { var d = C.B[b.t]; if (d.res === "c") wC += d.kind === "sto" ? 3 : 1; if (d.res === "s") wS += d.kind === "sto" ? 3 : 1; });
     lo = Math.round(lo / 10) * 10; salv = Math.round(salv);
     bld.forEach(function (b) { var d = C.B[b.t]; if (d.res === "c") b.lc = Math.round(lo * (d.kind === "sto" ? 3 : 1) / wC); if (d.res === "s") b.ls = Math.round(salv * (d.kind === "sto" ? 3 : 1) / wS); });
-    return {seed: seed, fh: fh, name: o.name || C.NAMES[seed % C.NAMES.length], tr: o.tr || (fh * 150 + Math.round(rnd() * 120) - 40 + (fh > 1 ? 150 : 0)), bld: bld, lootC: lo, lootS: salv, theme: "a"};
+    return {seed: seed, fh: fh, name: o.name || C.NAMES[seed % C.NAMES.length], tr: o.tr || (fh * 150 + Math.round(rnd() * 120) - 40 + (fh > 1 ? 150 : 0) + (fh > 4 ? (fh - 4) * 60 : 0)), bld: bld, lootC: lo, lootS: salv, theme: "a"};
   };
   // hand-made story bases (ASCII). legend: C core  B blaster  V coin vault  S salv vault  h coin harvester  r scrap harvester  # wall  X crew bunker  T trap  K sniper  F flak  L lobber  .=empty
   function ascii(rows, ox, oy) {
@@ -139,19 +146,14 @@
     return base;
   };
   // ----- local pool -----
-  var POOL_KEY = "bb_pool_v1", pool = null;
-  G.ensurePool = function () {
-    try { pool = JSON.parse(localStorage.getItem(POOL_KEY) || "null"); } catch (e) { pool = null; }
-    if (pool && pool.v === 1 && pool.list && pool.list.length >= 60) return pool;
-    var list = []; for (var fh = 1; fh <= 4; fh++) for (var i = 0; i < 15; i++) { var b = G.make(1000 * fh + i * 37 + 11, fh); list.push(b); }
-    pool = {v: 1, list: list}; try { localStorage.setItem(POOL_KEY, JSON.stringify(pool)); } catch (e) {}
-    return pool;
-  };
+  // Bases are deterministic from their seed, so the pool is regenerated lazily and cached in memory (nothing big goes in localStorage).
+  var POOL_KEY = "bb_pool_v2", memo = {};
+  G.POOLN = 15;
+  G.poolBase = function (fh, i) { var k = fh + ":" + i; if (!memo[k]) memo[k] = G.make(1000 * fh + i * 37 + 11, fh); return memo[k]; };
+  G.ensurePool = function () { try { localStorage.removeItem("bb_pool_v1"); localStorage.setItem(POOL_KEY, JSON.stringify({v: 2, n: G.POOLN})); } catch (e) {} return {v: 2}; };
   G.find = function (fh, trophies, rnd, avoidSeed) {
-    var p = G.ensurePool().list, want = fh;
-    var r = rnd(); if (r < 0.25 && fh > 1) want = fh - 1; else if (r > 0.92 && fh < 4) want = fh + 1;
-    var c = p.filter(function (b) { return b.fh === want && b.seed !== avoidSeed; });
-    var b = c[Math.floor(rnd() * c.length)];
+    var want = fh, r = rnd(); if (r < 0.25 && fh > 1) want = fh - 1; else if (r > 0.85 && fh < C.CORE_MAX) want = fh + 1;
+    var i = Math.floor(rnd() * G.POOLN), b = G.poolBase(want, i); if (b.seed === avoidSeed) b = G.poolBase(want, (i + 1) % G.POOLN);
     return JSON.parse(JSON.stringify(b));
   };
   // attacker's own base for "Revenge" (generated from its seed)
