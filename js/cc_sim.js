@@ -69,7 +69,7 @@
       if (d.kind === "def") { e.dps = d.dps * m * 1.3; e.rng = d.rng; e.min = d.min || 0; e.cd = d.cd; e.spl = d.spl || 0; e.g = d.g; e.a = d.a; e.cool = 0.5; e.spec = d.spec || ""; e.sup = d.sup || 0; e.frz = 0; e.half = 0; e.ramp = 0; e.m = m; }
       if (d.kind === "trap") { e.dmg = d.dmg * m; e.rad = d.rad; e.tk = d.tk || "rake"; e.fuse = d.fuse || 0; e.stun = d.stun || 0; }
       if (d.kind === "core") { e.m = m; } if (d.kind === "wall") { e.open = 0; }
-      if (d.kind === "crew") { e.released = false; }
+      if (d.kind === "crew") { e.released = false; if (b.gn) { e.gn = b.gn; e.go = b.go || 0; } }
       if (d.kind !== "wall" && d.kind !== "trap") { var wt = d.w * d.h; sim.totW += wt; e.wt = wt; } else e.wt = 0;
       if (d.kind !== "trap") for (var j = 0; j < d.h; j++) for (var k = 0; k < d.w; k++) occ[b.y + j][b.x + k] = i;
       sim.bld.push(e);
@@ -116,6 +116,8 @@
     function sideOf(x, y) { var dx = x - 12, dy = y - 12; return Math.abs(dy) > Math.abs(dx) ? (dy < 0 ? "North" : "South") : (dx < 0 ? "West" : "East"); }
     sim.sideOf = sideOf;
     sim.addTroop = addTroop;
+    // v0.9: posted hive sentinels (deterministic; list is stored in the base, so replays are exact). Alien bases only.
+    if (!sim.crewList && base.gd && base.gd.length) base.gd.forEach(function (g, gi) { var u = addTroop(g.k, g.x, g.y, "d", {lv: g.l || 1}); u.post = {x: g.x, y: g.y, ar: g.ar || 4.2, lr: g.lr || 6.8, ret: 0}; u.wob = gi * 1.9 + 0.3; u.sent = 1; });
     sim.canDeploy = function (x, y) {
       if (x < 0 || y < 0 || x >= N || y >= N) return false;
       if (x >= C.RING - 0.2 && x < N - C.RING + 0.2 && y >= C.RING - 0.2 && y < N - C.RING + 0.2) return false; return true;
@@ -341,6 +343,7 @@
       b.released = true; var list = [];
       if (sim.crewList) { C.UORDER.forEach(function (k) { for (var i = 0; i < (sim.crewList[k] || 0); i++) list.push(k); }); for (var gi = 0; gi < (sim.crewList.guard || 0); gi++) list.push("guard"); }
       else list = S.crewAlien(b.l);
+      if (b.gn && !sim.crewList) list = list.slice(b.go || 0, (b.go || 0) + b.gn);
       list.forEach(function (k, i) { var a = i * 2.399; var u = addTroop(k, b.cx + Math.cos(a) * 1.2, b.cy + Math.sin(a) * 1.2, "d", {lv: b.l}); u.fly = (C.U[k] && C.U[k].fly) || 0; });
       sim.ev.push({k: "release", x: b.cx, y: b.cy});
     }
@@ -506,6 +509,15 @@
       for (i = 0; i < sim.df.length; i++) {
         u = sim.df[i]; if (u.dead) continue; if (u.hit > 0) u.hit -= dt;
         var tg2 = null, bd2 = 1e9; for (j = 0; j < sim.tr.length; j++) { var a2 = sim.tr[j]; if (a2.dead || a2.dig > 0 || (a2.fly && u.rng < 1.5 && !u.fly)) continue; var d2 = Math.hypot(a2.x - u.x, a2.y - u.y); if (d2 < bd2) { bd2 = d2; tg2 = a2; } }
+        if (u.post) {
+          var po = u.post, pd = Math.hypot(u.x - po.x, u.y - po.y), par = po.ar + (u.hit > 0 ? 3 : 0);
+          if (pd > po.lr) po.ret = 1; else if (pd < 1.2) po.ret = 0;
+          if (!tg2 || bd2 > par || po.ret) {
+            var ppx = po.x + Math.cos(sim.t * 0.6 + u.wob) * 0.9, ppy = po.y + Math.sin(sim.t * 0.45 + u.wob) * 0.6;
+            if (Math.hypot(ppx - u.x, ppy - u.y) > 0.12) { u.face = ppx < u.x ? -1 : 1; moveTo(u, ppx, ppy, u.sp * (po.ret ? 1 : 0.45) * dt, true); }
+            continue;
+          }
+        }
         if (!tg2) continue; u.face = tg2.x < u.x ? -1 : 1;
         if (bd2 <= u.rng + 0.2) { dmgU(tg2, u.dps * dt, "d"); u.atk = 0.2; } else moveTo(u, tg2.x, tg2.y, u.sp * dt, true);
       }

@@ -89,4 +89,11 @@
   // ----- loot tables per Core level -----
   C.LOOTC = [[450,600],[1700,2400],[5000,7000],[10500,15000],[20000,29000],[37000,52000],[62000,88000],[95000,130000],[135000,185000],[180000,250000]];
   C.LOOTS = [[20,40],[60,110],[140,260],[320,600],[600,1000],[1000,1700],[1600,2600],[2300,3600],[3200,5000],[4300,6500]];
+  // ----- v0.9: the raid side is a monster HIVE. Raid-facing names for the same building types (data keys unchanged, so saves and replays stay compatible) -----
+  C.AN = {core: "Hive Heart", field: "Nectar Pod", rig: "Scrap Nest", barn: "Nectar Vault", silo: "Chitin Vault", blaster: "Spitter Nest", sniper: "Barb Spire", lobber: "Spore Lobber", flak: "Sting Bloom",
+    trap: "Spore Mine", crewhall: "Brood Pit", wall: "Acid Barricade", fan: "Gale Maw", storm: "Shock Spire", coil: "Rattle Coil", crane: "Hook Stalk", driver: "Ram Horn", shroud: "Mist Gland",
+    snare: "Web Snare", mine: "Burst Pod", cache: "Egg Cache", stake: "Pulse Thorn"};
+  C.bname = function (t, alien) { var d = C.B[t]; if (!d) return t; return alien && C.AN[t] ? C.AN[t] : d.name; };
+  // sentinel posts (guards): kind + level scaling by Core level, used by the generator
+  C.GUARDS = [[], [["snatch", 2]], [["snatch", 2], ["raker", 1]], [["raker", 2], ["sting", 1], ["blink", 1]], [["raker", 2], ["shard", 1], ["blink", 1], ["sting", 1]], [["shard", 2], ["raker", 1], ["blink", 1], ["bastion", 1]]];
 })();

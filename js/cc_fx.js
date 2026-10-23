@@ -4,7 +4,7 @@
 // Purely visual: nothing here changes the deterministic sim (replays stay identical). All procedural, no new art.
 (function () {
   var C = BB.CC, V = BB.CCV, T = C.T, N = C.GRID, FX = BB.FX = {}, TAU = 6.2832, G = null;
-  FX.q = 1;
+  FX.q = 1; if (BB.RIG) BB.RIG.load("");
   function calm() { return !!(BB.S && BB.S.set && BB.S.set.calm); }
   function R(a, b) { return a + Math.random() * (b - a); }
   function qn(n) { return Math.max(1, Math.round(n * FX.q * (calm() ? 0.5 : 1))); }
@@ -14,6 +14,49 @@
   function back(f) { var c = 1.7; return 1 + (c + 1) * Math.pow(f - 1, 3) + c * Math.pow(f - 1, 2); }
   var TIER = [null, {n: "FRENZY", c: "#ffb531"}, {n: "OVERDRIVE", c: "#ff5ad0"}, {n: "RAMPAGE", c: "#5af0ff"}];
   var PUI = {rage: {n: "TURBO", c: "#ff8a3a"}, shield: {n: "BUBBLE SHIELD", c: "#6fe0ff"}, heal: {n: "PULSE HEAL", c: "#7dff9a"}, burst: {n: "LOOT BURST", c: "#ffd35a"}, chain: {n: "SPARK CHAIN", c: "#fff06a"}};
+  // ---- v0.9 rig integration (cosmetic only: never feeds the sim) ----
+  var heroRigs = {};
+  function rigR() { var r = BB.RIG; return r && r.ready ? r : null; }
+  FX.rigs = heroRigs;
+  function heroGo(u, f, rig, RG, sz, moving, drop, atk, x, y, lx, ly, sX, sY, dt) {
+    var scx = u.hid === "scx", face = u.face < 0 ? -1 : 1, a = u.aim !== undefined ? u.aim : (face < 0 ? Math.PI : 0), tg = u.tgt, tx, ty;
+    if (tg) { tx = tg.cx !== undefined ? tg.cx : tg.x; ty = tg.cy !== undefined ? tg.cy : tg.y; a = Math.atan2(ty - u.y, tx - u.x); }
+    RG.step(rig, dt, {mv: moving ? 1 : 0, face: face, aim: atk ? a : undefined, air: drop > 2 ? 1 : 0});
+    if (u.hit > 0 && !f.hitP) RG.hit(rig, false); f.hitP = u.hit > 0;
+    if (u.ab > 0 && !f.abP) RG.burst(rig); f.abP = u.ab > 0;
+    if (atk && V.t >= (f.nextShot || 0)) { f.nextShot = V.t + (scx ? (u.ab > 0 ? 0.2 : 0.38) : 0.5) * (0.9 + Math.random() * 0.2); f.fireNow = 1; f.fa = a; if (!scx) RG.punch(rig); RG.fire(rig, {aim: a, pow: scx ? 1.25 : 0.85}); }
+    var s = sz * 1.2 / rig.d.H; RG.draw(cx0(), rig, 0, 0, s, face);
+    if (f.fireNow) {
+      f.fireNow = 0; var mz = rig.mz, mxp = x + lx + mz.x * sX, myp = y - drop + ly + mz.y * sY, ex, ey;
+      if (tg) { ex = px(tx); ey = py(ty); } else { ex = mxp + Math.cos(f.fa) * T * Math.max(1, u.rng) * 0.9; ey = myp + Math.sin(f.fa) * T * Math.max(1, u.rng) * 0.9; }
+      RG.bullet(mxp, myp, ex, ey, scx ? "rail" : "cannon", {big: scx ? 1 : 0, imp: 1}); sfx(scx ? "rail" : "dshot");
+    }
+  }
+  function cx0() { return G.cx; }
+  // ---- v0.9 squad firing line: cosmetic only, never feeds the sim ----
+  var SL = {sim: null, r: {}, lt: 0, tg: null, tgT: 0};
+  var ELB = ["plasma", "bolt", "seed", "frost", "pellet"];
+  function slKind(id) { var RG = rigR(); if (/scarecrow/.test(id)) return "scx"; if (RG.CHIBI && RG.CHIBI[id]) return "ch_" + id; return "bale"; }
+  function slTarget(sim, x, y) {
+    var best = null, bd = 1e9; (sim.bld || []).forEach(function (b) { if (b.dead || b.hp <= 0 || b.t === "wall" || b.t === "trap" || b.t === "mine" || b.t === "snare") return; var bx = b.x + (b.w || 1) / 2, by = b.y + (b.h || b.w || 1) / 2, d = Math.hypot(bx - x, by - y); if (d < bd) { bd = d; best = {x: bx, y: by}; } });
+    return best;
+  }
+  FX.squadBurst = function (e) { var r = SL.r[e.id]; if (r && rigR()) rigR().burst(r); };
+  FX.squadLine = function (cx) {
+    var RG = rigR(), sim = V.sim; if (!RG || !sim || !sim.sq || !sim.sq.length || V.mode !== "raid" || V.scout || !sim.started) { SL.sim = null; return; }
+    if (SL.sim !== sim) { SL.sim = sim; SL.r = {}; SL.lt = V.t; }
+    var dt = Math.min(0.1, Math.max(0, V.t - SL.lt)); SL.lt = V.t; var n = sim.sq.length, N = BB.CC.GRID, k, live = !sim.done;
+    for (k = 0; k < n; k++) {
+      var q = sim.sq[k], id = q.id || q.uid; if (!id) continue; var r = SL.r[id]; if (!r) { r = SL.r[id] = RG.make(slKind(id)); r.nx = V.t + 0.3 + k * 0.17; }
+      var tx = 3.4 + (N - 6.8) * (n === 1 ? 0.5 : k / (n - 1)), ty = N + 0.75, X = px(tx), Y = py(ty), tg = live ? slTarget(sim, tx, ty) : null, a = -1.57, face = 1;
+      if (tg) { a = Math.atan2(py(tg.y) - Y, px(tg.x) - X); face = Math.cos(a) < 0 ? -1 : 1; }
+      RG.step(r, dt, {mv: 0, face: face, aim: tg ? a : undefined, air: 0});
+      var scx = r.kind === "scx";
+      if (tg && V.t >= r.nx) { r.nx = V.t + (scx ? 0.42 : 0.62) * (0.8 + Math.random() * 0.4); RG.fire(r, {aim: a, pow: scx ? 1.1 : 0.8}); r.fireNow = 1; }
+      var s = 26 * 1.2 / r.d.H; cx.save(); cx.translate(X, Y); cx.fillStyle = "rgba(0,0,0,.28)"; cx.beginPath(); cx.ellipse(0, 1, 9, 3, 0, 0, 6.3); cx.fill(); RG.draw(cx, r, 0, 0, s, face); cx.restore();
+      if (r.fireNow) { r.fireNow = 0; var mz = r.mz || {x: 0, y: 0}, mx = X + mz.x, my = Y + mz.y, el = typeof q.el === "number" ? q.el : 0; RG.bullet(mx, my, px(tg.x), py(tg.y), scx ? "rail" : ELB[el] || "cannon", {big: scx ? 1 : 0, imp: 1}); }
+    }
+  };
   FX.PUI = PUI; FX.TIER = TIER; FX.R = R; FX.calm = calm; FX.ease = ease; FX.back = back;
 
   // ---- camera ----
@@ -140,11 +183,12 @@
     if (k === "shot") {
       X1 = px(e.x1); Y1 = py(e.y1); X2 = px(e.x2); Y2 = py(e.y2); ang = Math.atan2(Y2 - Y1, X2 - X1); var kind = e.t, d = kind === "lobber" ? 0.5 : kind === "sniper" ? 0.1 : 0.2, bf = null;
       if (V.sim) for (i = 0; i < V.sim.bld.length; i++) { b = V.sim.bld[i]; if (Math.abs(b.cx - e.x1) < 0.01 && Math.abs(b.cy - e.y1) < 0.01) { bf = b; break; } }
-      var L = bf ? Math.min(14, Math.max(8, bf.w * T * 0.4)) : 9; if (bf) { var f = bf._f || (bf._f = {ra: ang, rc: 0, ls: -9, lang: ang}); f.rc = 1; f.ls = V.t; f.lang = ang; }
+      var L = bf ? Math.min(14, Math.max(8, bf.w * T * 0.4)) : 9; if (bf) { var f = bf._f || (bf._f = {ra: ang, rc: 0, ls: -9, lang: ang}); f.rc = 1; f.ls = V.t; f.lang = ang; if (rigR()) { var rt = bf._rt || (bf._rt = rigR().turretNew()); rigR().turretFire(rt); if (V.theme !== "a" && kind !== "lobber") rigR().casing(X1 - Math.cos(ang) * 3, Y1 - 6, -Math.cos(ang) * 30 + R(-20, 20), -R(60, 110), Y1 + 2); } }
       muzzle(X1 + Math.cos(ang) * L, Y1 + Math.sin(ang) * L - 4, ang, (PCOL[kind] || PCOL.blaster)[0], kind === "sniper" || kind === "lobber");
       addProj(X1 + Math.cos(ang) * L, Y1 + Math.sin(ang) * L - 4, X2, Y2, kind, d, {arc: kind === "lobber" ? 26 : 0, spl: e.spl});
       sfx(kind === "sniper" ? "rail" : kind === "lobber" ? "thud" : "dshot"); return true;
     }
+    if ((k === "bolt" || k === "lob") && e.hid && heroRigs[e.hid === "scx" ? "scx" : "bale"] && rigR()) return true;
     if (k === "bolt" || k === "lob") {
       var hk = e.hid === "scx" ? "scx" : e.hid ? "bolt" : "troop"; X1 = px(e.x1); Y1 = py(e.y1); X2 = px(e.x2); Y2 = py(e.y2); ang = Math.atan2(Y2 - Y1, X2 - X1);
       addProj(X1, Y1 - 8, X2, Y2, k === "lob" ? "lobber" : hk, k === "lob" ? 0.45 : e.hid === "scx" ? 0.08 : 0.16, {arc: k === "lob" ? 20 : 0, spl: 1});
@@ -166,7 +210,8 @@
     }
     if (k === "bdead") { collapse(e); return true; }
     if (k === "udead") {
-      if (e.silent) return true; X0 = px(e.x); Y0 = py(e.y); var sz = 18; for (var kk in C.U) if (C.U[kk].art === e.a) sz = C.U[kk].sz; if (e.a === "hero") sz = 28;
+      if (e.silent) return true; X0 = px(e.x); Y0 = py(e.y);
+      if (e.team === "a" && (e.a === "hero" || e.a === "scx") && rigR()) { var hr = heroRigs[e.a === "scx" ? "scx" : "bale"]; if (hr) { rigR().kill(hr, {big: 1, kx: 0, col: e.a === "scx" ? "#46e6d2" : "#ffd35a"}); burst(X0, Y0, 12, {s0: 40, s1: 120, g: 70, l0: 0.3, l1: 0.8, r0: 1.5, r1: 3, cols: ["#ffd7a0", "#fff", "#ff9a8a"], ty: 3}); addRing(X0, Y0, 18, "#ffd7a0", {d: 0.35}); sfx("hurt"); BB.vibe && BB.vibe(14); return true; } } var sz = 18; for (var kk in C.U) if (C.U[kk].art === e.a) sz = C.U[kk].sz; if (e.a === "hero") sz = 28;
       pushCap(ghosts, {art: e.a, x: X0, y: Y0, vx: R(-26, 26), z: 0, vz: R(110, 150), rot: 0, vr: R(-7, 7), t: 0, d: 0.95, sz: sz, flip: Math.random() < 0.5, b: 0}, 24);
       burst(X0, Y0, e.team === "a" ? 7 : 10, {s0: 30, s1: 90, g: 70, l0: 0.3, l1: 0.7, r0: 1.5, r1: 3, cols: e.team === "a" ? ["#ffd7a0", "#fff", "#ff9a8a"] : ["#a8ff6a", "#fff", "#6ad0ff"], ty: 3});
       addRing(X0, Y0, 14, e.team === "a" ? "#ffd7a0" : "#a8ff6a", {d: 0.3}); sfx(e.team === "a" ? "hurt" : "pop"); if (e.team === "a") BB.vibe && BB.vibe(12); return true;
@@ -237,7 +282,7 @@
   // ---- per-frame update ----
   var ema = 0.016, slowT = 0, fastT = 0, T2 = 0;
   FX.update = function (dt) {
-    G = V.ctx && V.ctx(); if (!G || !G.cx) return; V.dtv = dt; var i, p;
+    G = V.ctx && V.ctx(); if (!G || !G.cx) return; V.dtv = dt; var i, p; if (BB.RIG && BB.RIG.ready) BB.RIG.update(dt);
     ema += (dt - ema) * 0.05; if (ema > 0.026) { slowT += dt; fastT = 0; } else if (ema < 0.019) { fastT += dt; slowT = 0; } if (slowT > 1.5 && FX.q > 0.5) { FX.q -= 0.2; slowT = 0; } if (fastT > 6 && FX.q < 1) { FX.q = Math.min(1, FX.q + 0.2); fastT = 0; }
     for (i = 0; i < PCAP; i++) { p = P[i]; if (!p.on) continue; p.l -= dt; if (p.l <= 0) { p.on = 0; live--; continue; } if (p.drag) { var dr = Math.max(0, 1 - p.drag * dt); p.vx *= dr; p.vy *= dr; } p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.rot += p.vr * dt; if (p.grow) p.r += p.grow * dt; }
     for (i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t >= rings[i].d) rings.splice(i, 1); }
@@ -274,7 +319,7 @@
   // ---- drawing (world space, inside the camera transform) ----
   function glowDot(cx, x, y, r, c, a) { cx.globalAlpha = a; cx.fillStyle = c; cx.beginPath(); cx.arc(x, y, r, 0, TAU); cx.fill(); cx.globalAlpha = a * 0.35; cx.beginPath(); cx.arc(x, y, r * 1.9, 0, TAU); cx.fill(); cx.globalAlpha = 1; }
   FX.drawWorld = function () {
-    var cx = G.cx, i, j, p;
+    var cx = G.cx, i, j, p; if (BB.RIG && BB.RIG.ready) { if (V.sim && V.sim.done && V.sim.stars > 0 && !FX._vic) { FX._vic = 1; for (var hk2 in heroRigs) BB.RIG.victory(heroRigs[hk2], 3); } else if (V.sim && !V.sim.done) FX._vic = 0; if (FX.squadLine) FX.squadLine(cx); BB.RIG.drawFx(cx); }
     ghosts.forEach(function (gh) { var f = gh.t / gh.d, art = gh.art === "hero" ? "bg_front" : gh.art; cx.save(); cx.translate(gh.x, gh.y - gh.z); cx.rotate(gh.rot); G.spr(art, 0, 0, gh.sz, gh.sz * 1.15, Math.max(0, 1 - f * f), gh.flip); cx.globalCompositeOperation = "lighter"; G.spr(art, 0, 0, gh.sz, gh.sz * 1.15, 0.55 * (1 - f), gh.flip); cx.restore(); cx.globalCompositeOperation = "source-over"; });
     colls.forEach(function (c) { var f = c.t / c.d, sy = Math.max(0.06, 1 - ease(f) * 0.94), sx = 1 + f * 0.14; cx.save(); cx.translate(c.x + R(-1, 1) * (1 - f) * 2.5, c.by + f * 3); cx.scale(sx, sy); G.spr(c.art, 0, 0, c.ww, c.cap, Math.max(0, 1 - f * f * 0.9)); cx.restore(); });
     tors.forEach(function (t) { var f = t.t / t.d, al = Math.min(1, f * 6, (1 - f) * 4); for (j = 0; j < 7; j++) { var h = j / 7, r = 6 + h * 20, yy = t.y - h * 44, ph = t.t * 9 + j * 0.9; cx.globalAlpha = 0.35 * al; cx.strokeStyle = j % 2 ? "#fff3d0" : "#ffb870"; cx.lineWidth = 2.2; cx.beginPath(); cx.ellipse(t.x + Math.sin(ph) * 3, yy, r, r * 0.34, 0, 0, TAU); cx.stroke(); } cx.globalAlpha = 1; });
@@ -342,9 +387,13 @@
     if (b.frz > 0) { cx.fillStyle = "rgba(150,225,255,.28)"; cx.fillRect(x + 1, y + h * 0.1, w - 2, h * 0.9); cx.strokeStyle = "rgba(230,250,255,.8)"; cx.lineWidth = 1; cx.strokeRect(x + 1.5, y + h * 0.1 + 0.5, w - 3, h * 0.9 - 1); }
     if (b.kind === "def") {
       var f = b._f || (b._f = {ra: b.aim || 0, rc: 0, ls: -9, lang: 0}), dt = V.dtv || 0.016, tgtA = V.t - f.ls < 1.2 ? f.lang : f.ra + Math.sin(V.t * 0.8 + (b.i || 0)) * 0.015, da = tgtA - f.ra; while (da > 3.14159) da -= TAU; while (da < -3.14159) da += TAU; f.ra += da * Math.min(1, dt * 16); f.rc = Math.max(0, f.rc - dt * 7);
-      var pxc = x + w / 2, pyc = y + h * 0.42, L = Math.min(14, Math.max(8, w * 0.42)), rec = f.rc * 3.2, heat = Math.max(0, 1 - (V.t - f.ls) / 0.5), th = b.t === "lobber" ? 4.2 : b.t === "sniper" ? 2.4 : 3.2;
+      var pxc = x + w / 2, pyc = y + h * 0.42, L = Math.min(14, Math.max(8, w * 0.42));
+      if (rigR()) { var rt = b._rt || (b._rt = rigR().turretNew()); rigR().turretStep(rt, dt, f.ra); rigR().drawTurret(cx, rt, {x: pxc, y: pyc, s: L, type: b.t, theme: V.theme, t: V.t + (b.i || 0)}); }
+      else {
+      var rec = f.rc * 3.2, heat = Math.max(0, 1 - (V.t - f.ls) / 0.5), th = b.t === "lobber" ? 4.2 : b.t === "sniper" ? 2.4 : 3.2;
       cx.save(); cx.translate(pxc, pyc); cx.rotate(f.ra); cx.fillStyle = "#262a36"; rr2(cx, -2 - rec, -th / 2, L + 2, th, 1.4); cx.fillStyle = "#4a5266"; cx.fillRect(-1 - rec, -th / 2, L, 0.9); cx.fillStyle = heat > 0 ? "rgb(255," + (150 + ((1 - heat) * 90 | 0)) + ",60)" : "#7a8398"; cx.fillRect(L - 2 - rec, -th / 2 - 0.4, 2.6, th + 0.8); cx.restore();
       cx.fillStyle = "#3a4054"; cx.beginPath(); cx.arc(pxc, pyc, 2.6, 0, TAU); cx.fill(); cx.fillStyle = heat > 0 ? "#ffb060" : "#8a94ac"; cx.beginPath(); cx.arc(pxc, pyc, 1.1, 0, TAU); cx.fill();
+      }
     }
   };
   // ---- units ----
@@ -355,6 +404,7 @@
     var kk = 1 - Math.exp(-dt * 20), dx = u.x - f.rx, dy = u.y - f.ry; if (Math.abs(dx) + Math.abs(dy) > 3) { f.rx = u.x; f.ry = u.y; dx = dy = 0; } else { f.rx += dx * kk; f.ry += dy * kk; }
     var moving = Math.hypot(dx, dy) > 0.012; if (moving) f.mvT = V.t; moving = V.t - f.mvT < 0.18; var age = V.t - f.born;
     var sz = u.sz * 1.2, x = px(f.rx), y = py(f.ry);
+    var RG = rigR(), rig = null; if (RG && u.hero) { rig = f.rig || (f.rig = RG.make(u.hid === "scx" ? "scx" : "bale")); heroRigs[u.hid === "scx" ? "scx" : "bale"] = rig; f.rx0 = x; f.ry0 = y; }
     f.ph += dt * (moving ? (u.fly ? 9 : 13) : 2.6); var s1 = Math.sin(f.ph), bob = moving ? Math.abs(s1) * Math.max(2, sz * 0.14) : s1 * 0.5 + 0.5, drop = 0;
     if (age < 0.3) { var df = age / 0.3; drop = f.drop * (1 - df) * (1 - df); } else if (!f.landed) { f.landed = 1; f.sq = 0.35; var gp = px(u.x), gq = py(u.y); addRing(gp, gq, 17, u.hero ? "#ffd35a" : "#fff", {d: 0.35, w: 2}); burst(gp, gq, u.hero ? 8 : 4, {s0: 15, s1: 50, l0: 0.25, l1: 0.5, r0: 1.5, r1: 3, c: "#d9c9a0", ty: 2, grow: 3}); if (u.hero) { FX.shake(2.5); sfx("thud"); } }
     f.sq = Math.max(0, f.sq - dt * 3.4); var atk = u.atk > 0, lx = 0, ly = 0, lunge = 0;
@@ -381,8 +431,17 @@
     var art = u.art === "hero" ? "bg_front" : u.art, flip = u.face < 0, tilt = u.k === "roller" ? V.t * 8 : Math.sin(f.ph) * (moving ? 0.1 : 0.015) + (atk ? lunge * 0.03 : 0);
     cx.globalAlpha = u.veil > 0 ? 0.45 : u.dig > 0 ? 0.25 : 1; if (u.dig > 0) { cx.fillStyle = "rgba(90,60,30,.7)"; cx.beginPath(); cx.ellipse(x, y + 1, 9, 4, 0, 0, TAU); cx.fill(); }
     cx.save(); cx.translate(x + lx, y - bob - drop + ly); if (u.k === "roller") { cx.translate(0, -sz * 0.4); cx.rotate(tilt); cx.translate(0, sz * 0.4); } else cx.rotate(tilt); cx.scale(sX, sY);
+    if (rig) { cx.rotate(-tilt); cx.translate(0, bob); heroGo(u, f, rig, RG, sz, moving, drop, atk, x, y, lx, ly, sX, sY, dt); }
+    else if (RG && !u.fly && !u.decoy && u.k !== "roller" && G.sprSlice) {
+      var ps_ = ((V.t + (u.wob || 0)) % (u.rng > 2 ? 0.55 : 0.4)) / (u.rng > 2 ? 0.55 : 0.4), st_ = f.st || (f.st = {});
+      st_.ph = f.ph; st_.mv = moving ? 1 : 0; st_.atk = atk && u.rng <= 2 ? Math.pow(Math.sin(Math.min(1, ps_ * 1.6) * 3.14), 2) : 0; st_.rc = atk && u.rng > 2 ? Math.max(0, 1 - ps_ * 4) : 0; st_.hit = u.hit > 0 ? 1 : 0;
+      G.sprSlice(art, 0, 0, sz, sz * 1.15, st_, flip);
+      if (u.hit > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; G.sprSlice(art, 0, 0, sz, sz * 1.15, st_, flip); cx.globalAlpha = 1; cx.globalCompositeOperation = "source-over"; }
+      if (atk && u.rng > 2 && ps_ < 0.12 && V.t > (f.nextShot || 0) && tg) { f.nextShot = V.t + 0.3; var mxq = x + lx + (flip ? -1 : 1) * sz * 0.34, myq = y - drop + ly - sz * 0.62; RG.bullet(mxq, myq, px(tx), py(ty), u.team === "d" ? "spit" : "pellet", {imp: 1}); }
+    } else {
     G.spr(art, 0, 0, sz, sz * 1.15, 1, flip);
     if (u.hit > 0) { cx.globalCompositeOperation = "lighter"; G.spr(art, 0, 0, sz, sz * 1.15, 0.7, flip); cx.globalCompositeOperation = "source-over"; }
+    }
     cx.restore(); cx.globalAlpha = 1;
     if (u.shld > 0) { cx.globalCompositeOperation = "lighter"; cx.strokeStyle = "rgba(120,230,255," + (0.5 + 0.2 * Math.sin(V.t * 9)) + ")"; cx.lineWidth = 1.6; cx.fillStyle = "rgba(100,210,255,.12)"; cx.beginPath(); cx.ellipse(x, y - sz * 0.45 - bob, sz * 0.62, sz * 0.7, 0, 0, TAU); cx.fill(); cx.stroke(); cx.globalCompositeOperation = "source-over"; }
     if (moving && !u.fly && V.t > f.nextDust && !u.dig) { f.nextDust = V.t + 0.17 + R(0, 0.08); sp(x - u.face * 3 + R(-2, 2), gy2, {vx: R(-6, 6), vy: R(-10, -2), l: 0.35, r: 1.6, c: "rgba(200,185,150,.6)", ty: 2, grow: 4}); }
@@ -567,7 +626,7 @@
   FX.scoutPan = function (name, mi) {
     pan = {t: 0, d: 2.3}; cam.z = cam.tz = 1.55; sfx("whoosh");
     var thr = mi ? Math.min(5, 1 + Math.floor((mi + 1) / 2)) : 0, st = ""; for (var i = 0; i < 5; i++) st += i < thr ? "\u25A0" : "\u25A1";
-    banner(name ? name.toUpperCase() : "SCOUTING", "#ffd35a", mi ? "Mission " + mi + "  Threat " + st : "Scouting the outpost", {big: true});
+    banner(name ? name.toUpperCase() : "SCOUTING", "#ffd35a", mi ? "Mission " + mi + "  Threat " + st : "Scouting the hive", {big: true});
   };
   FX.deployRing = function (cx, cy, hero) {
     var X0 = px(cx), Y0 = py(cy); addRing(X0, Y0, hero ? 34 : 22, hero ? "#ffd35a" : "#fff2a0", {d: 0.45, w: 3}); addRing(X0, Y0, hero ? 18 : 11, "#ffffff", {d: 0.3, w: 2, fill: 1});

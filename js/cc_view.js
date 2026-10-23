@@ -76,22 +76,52 @@
 
   // ---------- ground ----------
   function rnd(i) { var x = Math.sin(i * 127.1) * 43758.5453; return x - Math.floor(x); }
+  function hiveGround(c) {
+    // v0.9: the raid ground is the hive's creep: dark soil, a glowing membrane ring, veins and egg sacs around the Hive Heart
+    var hx = V.hc ? V.hc[0] : 11.5, hy = V.hc ? V.hc[1] : 11.5, hr = V.hr || 5, px = gx + hx * T, py = gy + hy * T, R = (hr + 3.4) * T;
+    var rg = c.createRadialGradient(px, py, T, px, py, R); rg.addColorStop(0, "rgba(150,70,170,.55)"); rg.addColorStop(0.55, "rgba(110,50,140,.32)"); rg.addColorStop(1, "rgba(60,30,90,0)");
+    c.fillStyle = rg; c.beginPath(); c.arc(px, py, R, 0, 6.3); c.fill();
+    // veins
+    c.lineCap = "round";
+    for (var i = 0; i < 14; i++) {
+      var a = i / 14 * 6.2832 + rnd(i + 3) * 0.3, len = (hr + 1.5 + rnd(i * 5) * 4) * T, mx = px + Math.cos(a + 0.35) * len * 0.5, my = py + Math.sin(a + 0.35) * len * 0.5, ex = px + Math.cos(a) * len, ey = py + Math.sin(a) * len;
+      c.strokeStyle = "rgba(205,120,230,.30)"; c.lineWidth = 3.4; c.beginPath(); c.moveTo(px + Math.cos(a) * T * 1.4, py + Math.sin(a) * T * 1.4); c.quadraticCurveTo(mx, my, ex, ey); c.stroke();
+      c.strokeStyle = "rgba(255,170,230,.22)"; c.lineWidth = 1.2; c.stroke();
+    }
+    // membrane rim (octagon-ish, matches the barricade ring)
+    c.strokeStyle = "rgba(210,130,255,.55)"; c.lineWidth = 2.2; c.setLineDash([6, 5]); c.beginPath();
+    for (var k = 0; k < 8; k++) { var aa = (k + 0.5) / 8 * 6.2832, rr = (hr + 0.6) * T * (k % 2 ? 1.22 : 1.06); var xx = px + Math.cos(aa) * rr, yy = py + Math.sin(aa) * rr; if (k) c.lineTo(xx, yy); else c.moveTo(xx, yy); }
+    c.closePath(); c.stroke(); c.setLineDash([]);
+    // egg sacs
+    for (var e = 0; e < 26; e++) { var ea = rnd(e * 11 + 2) * 6.2832, er = (hr + 1.2 + rnd(e * 7 + 5) * 5.2) * T, ex2 = px + Math.cos(ea) * er, ey2 = py + Math.sin(ea) * er, s = 2.5 + rnd(e * 3) * 3.5;
+      if (ex2 < gx + C.RING * T || ex2 > gx + (N - C.RING) * T || ey2 < gy + C.RING * T || ey2 > gy + (N - C.RING) * T) continue;
+      c.fillStyle = "rgba(30,10,50,.5)"; c.beginPath(); c.ellipse(ex2, ey2 + s * 0.6, s * 1.2, s * 0.6, 0, 0, 6.3); c.fill();
+      c.fillStyle = e % 3 ? "rgba(170,230,120,.75)" : "rgba(255,150,210,.75)"; c.beginPath(); c.ellipse(ex2, ey2, s, s * 1.25, 0, 0, 6.3); c.fill();
+      c.fillStyle = "rgba(255,255,255,.45)"; c.beginPath(); c.ellipse(ex2 - s * 0.3, ey2 - s * 0.45, s * 0.3, s * 0.4, 0, 0, 6.3); c.fill(); }
+  }
   function buildGround() {
     if (!cv) return; var g = document.createElement("canvas"); g.width = cv.width; g.height = cv.height; var c = g.getContext("2d"); c.setTransform(sc * dpr, 0, 0, sc * dpr, 0, 0);
-    var gr = c.createLinearGradient(0, 0, 0, Hl); gr.addColorStop(0, "#5aa84a"); gr.addColorStop(1, "#3f8a3e"); c.fillStyle = gr; c.fillRect(0, 0, 360, Hl);
-    for (var i = 0; i < 260; i++) { c.fillStyle = "rgba(" + (rnd(i) < .5 ? "255,255,200" : "20,70,30") + ",.07)"; c.beginPath(); c.arc(rnd(i * 3) * 360, rnd(i * 5 + 1) * Hl, 3 + rnd(i * 7) * 9, 0, 6.3); c.fill(); }
-    // plot
     var alien = V.theme === "a";
+    var gr = c.createLinearGradient(0, 0, 0, Hl); if (alien) { gr.addColorStop(0, "#2c2140"); gr.addColorStop(1, "#1f1832"); } else { gr.addColorStop(0, "#5aa84a"); gr.addColorStop(1, "#3f8a3e"); } c.fillStyle = gr; c.fillRect(0, 0, 360, Hl);
+    for (var i = 0; i < 260; i++) { c.fillStyle = "rgba(" + (alien ? (rnd(i) < .5 ? "190,130,230" : "10,0,30") : (rnd(i) < .5 ? "255,255,200" : "20,70,30")) + ",.07)"; c.beginPath(); c.arc(rnd(i * 3) * 360, rnd(i * 5 + 1) * Hl, 3 + rnd(i * 7) * 9, 0, 6.3); c.fill(); }
+    // plot
     for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
       var inner = x >= C.RING && x < N - C.RING && y >= C.RING && y < N - C.RING, odd = (x + y) & 1;
-      if (inner) { c.fillStyle = alien ? (odd ? "#54764a" : "#4d6e44") : (odd ? "#7ccb5d" : "#72c256"); c.fillRect(gx + x * T, gy + y * T, T, T); }
-      else { c.fillStyle = alien ? "rgba(40,20,70,.20)" : "rgba(30,90,40,.16)"; c.fillRect(gx + x * T, gy + y * T, T, T); }
+      if (inner) { c.fillStyle = alien ? (odd ? "#4a3a58" : "#43344f") : (odd ? "#7ccb5d" : "#72c256"); c.fillRect(gx + x * T, gy + y * T, T, T); }
+      else { c.fillStyle = alien ? "rgba(20,5,40,.22)" : "rgba(30,90,40,.16)"; c.fillRect(gx + x * T, gy + y * T, T, T); }
     }
+    if (alien && V.mode === "raid") hiveGround(c);
     c.strokeStyle = alien ? "rgba(190,120,255,.55)" : "rgba(255,255,220,.45)"; c.lineWidth = 2; c.strokeRect(gx + C.RING * T, gy + C.RING * T, (N - 2 * C.RING) * T, (N - 2 * C.RING) * T);
     ground = g; V._groundSprites = true;
   }
-  V.setTheme = function (th) { if (V.theme !== th) { V.theme = th; buildGround(); } };
+  V.setTheme = function (th, base) {
+    var hc = null, hr = 0;
+    if (th === "a" && base) { var co = null; (base.bld || []).forEach(function (b) { if (b.t === "core") co = b; }); if (co) hc = [co.x + 1.5, co.y + 1.5]; hr = base.hr || (base.fh >= 6 ? 6 : base.fh >= 3 ? 5 : 4); }
+    var key = th + "|" + (hc ? hc.join(",") : "") + "|" + hr + "|" + V.mode;
+    if (V._gk !== key) { V._gk = key; V.theme = th; V.hc = hc; V.hr = hr; buildGround(); }
+  };
   function drawGroundProps() {
+    if (V.theme === "a" && V.mode === "raid") return;
     // decoration outside the plot: trees, flowers, hay (drawn each frame cheaply, cached sprites)
     var list = [[2, -2, "tree", 34], [330, -6, "pine", 30], [8, 22 + 0, "flowers", 20], [300, 12, "tree", 30], [-4, Hl - 14, "pine", 34], [320, Hl - 8, "tree", 36], [40, Hl - 4, "hay_stack", 26], [250, Hl - 2, "pumpkins", 22]];
     var topY = gy - 10, botY = gy + GW + 12;
@@ -106,7 +136,7 @@
   var ZC = {clamp: "#a8e8ff", stitch: "#9be26b", veil: "#c9b8ff", snare: "#d8c080", mine: "#ff9a3a", cache: "#ffd35a", stake: "#5af0ff", fuse: "#ffb040", surge: "#ffd35a"};
   function handleEvents(ev) {
     for (var i = 0; i < ev.length; i++) {
-      var e = ev[i]; if (e.k === "sqb" && BB.SQUI && BB.SQUI.ev(e)) continue; if (BB.TCH && BB.TCH.ev(e)) continue; if (BB.FX && BB.FX.ev(e)) continue;
+      var e = ev[i]; if (e.k === "sqb" && BB.FX && BB.FX.squadBurst) BB.FX.squadBurst(e); if (e.k === "sqb" && BB.SQUI && BB.SQUI.ev(e)) continue; if (BB.TCH && BB.TCH.ev(e)) continue; if (BB.FX && BB.FX.ev(e)) continue;
       if (e.k === "shot") { if (V.cb.sfx) V.cb.sfx("dshot"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: e.t === "lobber" ? 0.45 : 0.16, c: e.t, spl: e.spl}); }
       else if (e.k === "bolt") { if (V.cb.sfx) V.cb.sfx(e.hid === "scx" ? "rail" : "pew"); if (V.projs.length < 50) V.projs.push({x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, d: 0.12, c: "bolt"}); }
       else if (e.k === "crows") { if (V.cb.sfx) V.cb.sfx("crows"); (e.t || []).forEach(function (p) { V.puff(p[0], p[1], 12, "#2a2438", 70, 0.8); V.ring(p[0], p[1], 1.4, "#46e6d2"); }); V.shake = Math.max(V.shake, 0.3); }
@@ -329,6 +359,11 @@
     if (V.ghost) { if (!d.moved && !d.onGhost) V.cb.ghostMove && V.cb.ghostMove(Math.round(x - C.B[V.ghost.t].w / 2), Math.round(y - C.B[V.ghost.t].h / 2)); return; }
     if (!d.moved) V.cb.tap && V.cb.tap(x, y);
   }
-  V.ctx = function () { return {cx: cx, gx: gx, gy: gy, Hl: Hl, spr: spr, toClient: V.toClient, rect: function () { return cv.getBoundingClientRect(); }}; };
+  function sprSlice(n, x, by, w, maxH, st, flip) {
+    var i = img(n); if (!i) return false; var asp = i.naturalHeight / i.naturalWidth, h = w * asp; if (maxH && h > maxH) { h = maxH; w = h / asp; }
+    w = Math.round(w * 2) / 2; h = Math.round(h * 2) / 2; var c = cached(n, w, h); if (!c) return false;
+    if (!BB.RIG) return spr(n, x, by, w, maxH, 1, flip); BB.RIG.sliceDraw(cx, c, 0, 0, c.width, c.height, x, by, w, h, st, flip); return true;
+  }
+  V.ctx = function () { return {cx: cx, gx: gx, gy: gy, Hl: Hl, spr: spr, sprSlice: sprSlice, toClient: V.toClient, rect: function () { return cv.getBoundingClientRect(); }}; };
   V.dims = function () { return {Hl: Hl, gy: gy, GW: GW}; };
 })();

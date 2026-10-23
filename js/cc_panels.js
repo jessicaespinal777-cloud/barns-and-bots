@@ -99,7 +99,7 @@
   // ---------- modals ----------
   function attackMenu() {
     var c = cc(), L = C.league(c.trophies), fh = X.coreL(), h = '<h1 class="win" style="font-size:24px">ATTACK</h1><div class="card gold"><div class="row"><i class="lg" style="background:' + L.col + ';width:34px;height:34px"></i><div class="grow"><h4>' + L.n + " League</h4><small>" + c.trophies + ' trophies &middot; raids match your Core level</small></div></div></div>';
-    h += '<div class="card"><h4>Find a Raid</h4><small>Scout a random alien outpost sized for Core L' + fh + '. Loot it, win trophies. Costs ' + 40 * fh + ' coins to scout.</small><div style="margin-top:6px"><button class="btn" id="a-find" style="width:100%">FIND A RAID</button></div></div>';
+    h += '<div class="card"><h4>Find a Raid</h4><small>Scout a random monster hive sized for Core L' + fh + '. Loot it, win trophies. Costs ' + 40 * fh + ' coins to scout.</small><div style="margin-top:6px"><button class="btn" id="a-find" style="width:100%">FIND A RAID</button></div></div>';
     h += '<h3 class="sec" style="margin-top:6px">Campaign</h3>';
     C.STORY.forEach(function (s, i) { var st = c.story[i + 1] || 0, lock = s.fh > fh || (i > 0 && !c.story[i]); h += '<button class="btn camp ' + (lock ? "off" : "") + '" data-story="' + (i + 1) + '"><b>' + (i + 1) + ". " + s.name + '</b><small>' + (s.fh > fh ? "Needs Core L" + s.fh : lock ? "Clear the previous mission" : s.desc) + '</small><span class="stars">' + [0, 1, 2].map(function (j) { return j < st ? "\u2605" : "\u2606"; }).join("") + "</span></button>"; });
     h += '<div class="btns"><button class="btn sec" id="m-no">CLOSE</button></div>'; X.modal(h, "tall");

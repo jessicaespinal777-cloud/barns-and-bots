@@ -167,6 +167,8 @@ html,body{margin:0;height:100%;background:#120a1c;overflow:hidden;touch-action:n
   </div>
 </div>
 <div id="bank" class="hidden">🪙 Barn Bank: <span id="bankN">0</span></div>
+<script src="assets/rig/rig_data.js"></script>
+<script src="assets/rig/rig.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -465,7 +467,20 @@ function drawGun(w,glowc){
    case 'flame': box(-6,-4,18,8,'#9a4a1a');box(10,-2.5,12,5,'#2a2a30');ell(-6,0,5,7,'#c44a1a');ell(23,0,2.5,2.5,'#ffd24a',1);break;
    case 'rocket': box(-8,-5,30,10,'#4a5a3a');box(22,-6,5,12,'#2a2a30');box(-2,-2,16,2,'#ff5a2a',1,0);break;
   }}
+/* ---------- v0.9 part-based hero rig (shared with the main game: assets/rig/rig.js) ---------- */
+const RGK={scarecrow:'scx',bale:'bale',june:'ch_harvestram'},RGS={scarecrow:.8,bale:.82,june:1.05},rigs={};let rigT=0;
+function rigOn(){return !!(window.BB&&BB.RIG&&BB.RIG.ready)}
+function rigHero(id,x,sy,o){
+  if(!o.live||!rigOn())return false;const RG=BB.RIG;let r=rigs[id];if(!r){r=rigs[id]=RG.make(RGK[id]);if(!r)return false}
+  const dt=Math.min(.1,r.acc||0);r.acc=0;
+  const wa=o.dir>0?-(o.aim||0):Math.PI+(o.aim||0);
+  RG.step(r,dt,{mv:o.run?1:0,face:o.dir,aim:o.fire?wa:undefined,air:o.air?1:0,crouch:o.crouch?1:0});BB.RIG.forceCalm=!!settings.reduced;
+  if(o.hurt>0&&!r.hp)RG.hit(r,false);r.hp=o.hurt>0;
+  RG.draw(ctx,r,x,sy,RGS[id]*(RG.PAL?1:1),o.dir);return true}
+function rigShot(id,dir,aim){const r=rigs[id];if(r&&rigOn()){const wa=dir>0?-aim:Math.PI+aim;BB.RIG.fire(r,{aim:wa,pow:id==='scarecrow'?1.25:.9});if(id!=='scarecrow')BB.RIG.punch(r)}}
+if(window.BB&&BB.RIG)BB.RIG.load('');
 function drawHero(id,x,sy,o){
+  if(rigHero(id,x,sy,o))return;
   const dir=o.dir||1,ph=o.ph||0,air=o.air,cr=o.crouch,run=o.run?1:0,t=o.t||0;
   const P={scarecrow:{body:'#8a5a2e',plate:'#c08a44',dark:'#4a2c18',acc:'#2ee6d0',cloth:'#a41e30',skin:'#4a3830'},
            june:{body:'#c8501a',plate:'#f08a2a',dark:'#5a2410',acc:'#ffd24a',cloth:'#2a8aa0',skin:'#e8b890'},
@@ -969,7 +984,7 @@ function findTarget(m,dir){
 function fireWeapon(){
   const p=G.p,h=curHero();let wk=p.tank?'rifle':(h.wpn||HERO_BY[h.id].gun);const W_=p.tank?{rate:.085,dmg:1.15,spd:820,life:.8,spread:.05,n:1,kind:'tracer',col:'#ffd890',snd:'rapid',rec:.6,cas:1}:WPN[wk];
   const m=muzzle();let aim=0;const tg=settings.assist?findTarget(m,p.dir):null;if(tg)aim=tg.ang;
-  p.aim=lerp(p.aim,aim,.7);p.recoil=Math.min(1.4,W_.rec||0.5);p.shotT=.12;
+  p.aim=lerp(p.aim,aim,.7);p.recoil=Math.min(1.4,W_.rec||0.5);p.shotT=.12;if(!p.tank)rigShot(h.id,p.dir,p.aim);
   const len=p.tank?0:GUNLEN[wk]*.9,ox=m.x+Math.cos(aim)*len*p.dir,oy=m.y+Math.sin(aim)*len;
   Aud.play(W_.snd);G.stats.shots++;
   for(let i=0;i<W_.n;i++){const a=aim+(R()-.5)*2*W_.spread+(W_.n>1?(i/(W_.n-1)-.5)*W_.spread*1.2:0);
@@ -980,7 +995,7 @@ function fireWeapon(){
   const fl=settings.reduced?.55:1;
   addPart({t:'fire',x:ox+p.dir*6,y:oy,col:wk==='cannon'?'teal':'yellow',size:(wk==='cannon'||wk==='rocket'?34:p.tank?30:22)*fl,life:.06});
   addPart({t:'spark',x:ox,y:oy,vx:p.dir*rr(120,300),vy:rr(-30,60),life:.12,col:'#fff2b0',size:2});
-  if(W_.cas){for(let i=0;i<W_.cas;i++)addPart({t:'cas',x:m.x,y:m.y-2,vx:-p.dir*rr(40,110),vy:rr(120,220),grav:900,life:.9,w:3,h:1.6,col:'#e8c24a',rot:0,vr:rr(-20,20)})}
+  if(W_.cas&&!(rigOn()&&!p.tank)){for(let i=0;i<W_.cas;i++)addPart({t:'cas',x:m.x,y:m.y-2,vx:-p.dir*rr(40,110),vy:rr(120,220),grav:900,life:.9,w:3,h:1.6,col:'#e8c24a',rot:0,vr:rr(-20,20)})}
   if(wk==='flame'){for(let i=0;i<2;i++)addPart({t:'fire',x:ox,y:oy,vx:p.dir*rr(120,260),vy:rr(-20,40),col:'orange',size:rr(14,24),life:.25})}
   if(wk==='cannon'||wk==='rocket')shake(2.5);else if(wk==='scatter'||wk==='shotgun')shake(3);else if(p.tank)shake(1.2);
   p.vx-=p.dir*(wk==='scatter'||wk==='shotgun'?18:4);
@@ -1297,7 +1312,7 @@ function update(dt0){
   enemies=enemies.filter(e=>!e.dead);
   for(const o of props){o.flash=Math.max(0,o.flash-dt);o.t+=dt}
   props=props.filter(o=>!o.dead);
-  bulletsUpdate(dt);ebulletUpdate(dt);updatePickups(dt);updateFx(dt);
+  if(rigOn()){BB.RIG.update(dt);for(const k in rigs)rigs[k].acc=(rigs[k].acc||0)+dt}bulletsUpdate(dt);ebulletUpdate(dt);updatePickups(dt);updateFx(dt);
   // combo
   if(G.comboT>0){G.comboT-=dt;if(G.comboT<=0)G.combo=0}
   tank.t+=dt;if(tank.state==='dead'){}
@@ -1377,10 +1392,11 @@ function drawWorld(){
     const h=curHero(),blink=p.inv>0&&G.state!=='burst'&&!p.hurt;
     ctx.save();if(blink)ctx.globalAlpha=settings.reduced?.7:(Math.floor(p.t*18)%2?.35:.9);
     FL=p.hurt>0?(settings.reduced?.3:.9):(p.pop>0?.9*(p.pop/.4):0);shadow(p.x,12);
-    drawHero(h.id,p.x,gy(p.y),{dir:p.dir,ph:p.ph,air:p.air,crouch:p.crouch,run:p.run,t:p.t,aim:p.shotT>0?p.aim:p.aim*.5,recoil:p.recoil,wpn:h.wpn||HERO_BY[h.id].gun});
+    drawHero(h.id,p.x,gy(p.y),{live:1,fire:p.shotT>0,hurt:p.hurt,dir:p.dir,ph:p.ph,air:p.air,crouch:p.crouch,run:p.run,t:p.t,aim:p.shotT>0?p.aim:p.aim*.5,recoil:p.recoil,wpn:h.wpn||HERO_BY[h.id].gun});
     FL=0;ctx.restore();
   } else if(p.tank){shadow(p.tank.x,40);const tk=p.tank;FL=tk.inv>0&&Math.floor(tk.t*20)%2&&!settings.reduced?.6:0;drawTank(tk,tk.x,gy(tk.y),curHero().id);FL=0;
     const w=60,y=gy(tk.y+60);ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(tk.x-w/2-1,y-1,w+2,7);for(let i=0;i<10;i++){ctx.fillStyle=i<tk.hp?(tk.hp<=3?'#ff5a4a':'#ffd24a'):'rgba(255,255,255,.15)';ctx.fillRect(tk.x-w/2+i*6,y,5,5)}}
+  if(rigOn())BB.RIG.drawFx(ctx);
   // projectiles
   ctx.save();ctx.lineCap='round';
   for(const b of bullets){const y=gy(b.y);

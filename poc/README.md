@@ -19,6 +19,9 @@ Keyboard: A/D or ←/→ move · W/K/↑ jump · S/↓ crouch · J hold-shoot ·
 
 URL params for testing: `?auto=1` (autopilot bot), `?go=1` (skip title), `?skip=boss|tank|<x>`, `?god=1`, `?fps=1`, `?seed=N`, `?fixed=1` (no adaptive render scale).
 
+## v0.9 update: rigged shooter hero
+The player hero (Scarecrow-X) now uses the same part-based rig as the main game (`assets/rig/rig.js`, `rig_data.js`, `atlas.webp`): head, torso, arms, weapon and legs move individually, with aim, recoil on weapon/arm/torso, muzzle flash, ejected casings, bullet trails and hit flinch. If the rig fails to load the old sprite path is used. Only Scarecrow-X is wired here (no hive layout in the PoC).
+
 ## Files
 `index.html` (all code + CSS, ~one file), `assets/scarecrow-x.jpg` (cut-in art), `README.md`.
 
